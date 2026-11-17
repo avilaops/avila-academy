@@ -61,3 +61,11 @@ A seção Meus cursos cria cursos com descrição, módulos ordenados e aulas vi
 Uma aula pode ser marcada como publicada ou voltar a rascunho. Esse estado fica persistido para a futura área do aluno. Nesta entrega ainda não há matrícula ou reprodução por aluno. A ordenação dos módulos exige a lista completa sem duplicações e é aplicada em uma única transação.
 
 O estúdio permite pausar, continuar e finalizar uma captura pausada. Os testes do navegador exercitam pausa e retomada nos quatro modos de gravação.
+
+## Preparar e importar aulas
+
+Use **Testar câmera e microfone** para abrir a prévia antes de gravar. O indicador mostra o nível do microfone, sem reproduzir sua voz nos alto-falantes. A fonte de captura fica fixa durante a prévia. Para mudar de fonte, use **Encerrar prévia**, que libera câmera, microfone e compartilhamento de tela. Preencha os dados da aula e clique em **Iniciar gravação** quando estiver pronto. O botão de início direto continua disponível e solicita as permissões quando necessário.
+
+Também é possível selecionar uma aula já gravada em **Importar aula gravada**. São aceitos arquivos com MIME MP4, WebM ou Ogg, de áudio ou vídeo, não vazios e de até 1 GiB. Curso e módulo são obrigatórios. Se o título estiver vazio, ele é sugerido pelo nome do arquivo. O arquivo passa a ser um rascunho local revisável, com o mesmo envio retomável ao servidor. Compatibilidade de reprodução depende dos codecs suportados pelo navegador. O limite de armazenamento local também depende do espaço e da quota do navegador.
+
+Os testes do Chrome verificam liberação dos dispositivos ao encerrar a prévia, prévia sem início de gravação, gravação e pausa nos quatro modos, importação com persistência após recarregar e rejeição de formato incompatível. O cadastro OIDC e o envio com conta real continuam pendentes de configuração e validação.

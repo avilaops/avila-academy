@@ -10,9 +10,9 @@
 
 - Implementado o cliente OIDC/PKCE e a autorização de produtores por subject. Pendente cadastrar credenciais e validar login real. Integrar o login da Ávila Ops via OIDC. Associar papéis de produtor, aluno e administrador a cada academia.
 - Modelar academias, domínios, membros, cursos, módulos, aulas e mídias no PostgreSQL e aplicar autorização no servidor.
-- Implementado catálogo de cursos, descrições, módulos ordenados e aulas vinculadas a gravações concluídas, com edição de nomes. Pendente upload de vídeos existentes e anexos.
+- Implementado catálogo de cursos, descrições, módulos ordenados e aulas vinculadas a gravações concluídas, com edição de nomes. Implementada importação de vídeos/áudios existentes como rascunhos, com revisão e envio pelo fluxo existente. Pendente anexos.
 - Implementado envio em partes com retomada após falha e persistência SQLite. Pendente envio durante a captura, processamento assíncrono e migração para PostgreSQL/objetos.
-- Implementada pausa e retomada de gravação. Pendente prévia dos dispositivos antes da captura e teste de som.
+- Implementadas pausa, retomada, prévia antes da captura, encerramento da prévia com liberação de dispositivos e indicador do nível do microfone. A seleção de uma câmera ou microfone específico ainda utiliza o padrão do navegador.
 - Aceite: o Abraão consegue gravar em um computador e revisar em outro. Um produtor da academia de teste só acessa os próprios cursos e arquivos.
 
 ## 3. Publicação e área do aluno
