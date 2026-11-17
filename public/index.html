@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Estúdio de aulas</title><link rel="stylesheet" href="/style.css"></head>
+<body><header><strong id="brand">Academia</strong><span>Área do professor</span></header>
+<main><h1>Estúdio de aulas</h1><div class="layout"><section aria-label="Gravação">
+<div class="monitor"><video id="preview" playsinline hidden></video><p id="placeholder">Prévia da gravação</p></div>
+<form id="settings"><fieldset id="fields"><label>Curso<input id="course" required maxlength="100"></label>
+<label>Módulo<input id="unit" required maxlength="100"></label><label>Título da aula<input id="title" required maxlength="160"></label>
+<label>Gravar com<select id="mode"><option value="camera">Câmera e microfone</option><option value="combined">Tela, câmera e microfone</option><option value="screen">Tela e microfone</option><option value="audio">Somente microfone</option></select></label></fieldset>
+<div class="actions"><button id="record">Iniciar gravação</button><button type="button" id="stop" hidden>Finalizar gravação</button><a id="download" hidden>Baixar gravação</a></div></form>
+<p id="status" role="status">Autorize o acesso ao microfone quando o navegador solicitar.</p></section>
+<aside><h2>Rascunhos</h2><p>Salvos neste navegador. Baixe uma cópia para guardar a aula.</p><ul id="drafts"></ul></aside></div></main>
+<script type="module" src="/studio.js"></script></body></html>
