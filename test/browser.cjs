@@ -67,6 +67,11 @@ await page.close();
 page=await context.newPage();
 page.on('pageerror',error=>errors.push(error.message));
 await page.goto('http://abraao.localhost:3071');
+await page.waitForFunction(()=>document.getElementById('drafts').textContent.length>0);
+console.log('recuperacao',await page.evaluate(async()=>{
+  const {drafts}=await import('/storage.js');
+  return {labels:await drafts('list'),status:document.getElementById('status').textContent,buttons:document.getElementById('drafts').textContent};
+}),errors);
 await page.getByRole('button',{name:'Finalizar trecho recuperado: Captura interrompida',exact:true}).click();
 await page.getByText('Trecho recuperado.',{exact:false}).waitFor();
 assert(await page.evaluate(async()=>{
