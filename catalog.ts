@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { courseCatalog } from './courses.ts';
 import { randomUUID } from 'node:crypto';
 
 export function catalog(directory) {
@@ -16,6 +17,7 @@ export function catalog(directory) {
       recording TEXT NOT NULL REFERENCES recordings(id), number INTEGER NOT NULL, data BLOB NOT NULL,
       PRIMARY KEY(recording,number)
     );`);
+  const handleCourses = courseCatalog(db);
   function find(tenant,id) { return db.prepare('SELECT * FROM recordings WHERE tenant=? AND id=?').get(tenant,id); }
   async function body(req,limit) {
     const parts=[]; let length=0;
@@ -29,6 +31,7 @@ export function catalog(directory) {
   return {
     close:()=>db.close(),
     async handle(req,res,tenant) {
+      if (req.url.startsWith('/api/courses')) { await handleCourses(req,res,tenant); return; }
       const url=new URL(req.url,'http://localhost');
       const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json'}).end(JSON.stringify(data));};
       try {

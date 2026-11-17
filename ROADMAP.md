@@ -10,14 +10,14 @@
 
 - Implementado o cliente OIDC/PKCE e a autorização de produtores por subject. Pendente cadastrar credenciais e validar login real. Integrar o login da Ávila Ops via OIDC. Associar papéis de produtor, aluno e administrador a cada academia.
 - Modelar academias, domínios, membros, cursos, módulos, aulas e mídias no PostgreSQL e aplicar autorização no servidor.
-- Criar o catálogo do produtor com ordenação de módulos, upload de vídeos existentes e anexos.
+- Implementado catálogo de cursos, descrições, módulos ordenados e aulas vinculadas a gravações concluídas, com edição de nomes. Pendente upload de vídeos existentes e anexos.
 - Implementado envio em partes com retomada após falha e persistência SQLite. Pendente envio durante a captura, processamento assíncrono e migração para PostgreSQL/objetos.
-- Incluir prévia dos dispositivos antes da captura, teste de som e pausa.
+- Implementada pausa e retomada de gravação. Pendente prévia dos dispositivos antes da captura e teste de som.
 - Aceite: o Abraão consegue gravar em um computador e revisar em outro. Um produtor da academia de teste só acessa os próprios cursos e arquivos.
 
 ## 3. Publicação e área do aluno
 
-- Permitir revisão, publicação e matrícula manual. Proteger reprodução e anexos conforme a matrícula.
+- Implementado estado publicado/rascunho das aulas no painel do produtor. Pendente matrícula manual, área do aluno e autorização de reprodução/anexos conforme matrícula.
 - Implementar vitrine, trilhas, progresso e continuidade da última aula.
 - Ativar domínio verificado com HTTPS, logotipo, cores e e-mails por cliente.
 - Aceite: um aluno convidado acessa seu curso no domínio do produtor, retoma a aula e perde o acesso quando a matrícula é revogada.

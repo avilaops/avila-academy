@@ -10,7 +10,12 @@ for(const mode of ['camera','audio','screen','combined']){
 await page.fill('#course','Curso piloto');await page.fill('#unit','Introdução');await page.fill('#title','Aula '+mode);
 await page.selectOption('#mode',mode);await page.click('#record');
 await page.locator('#stop').waitFor({timeout:7000});
-await page.waitForTimeout(1500);await page.click('#stop');
+await page.waitForTimeout(900);
+await page.click('#pause');
+await page.getByText('Gravação pausada.',{exact:false}).waitFor();
+await page.click('#pause');
+await page.waitForTimeout(600);
+await page.click('#stop');
 await page.getByText('Rascunho salvo.',{exact:false}).waitFor();
 await page.reload();await page.locator('#drafts button').filter({hasText:'Aula '+mode}).click();
 const bytes=await page.evaluate(async()=> (await (await fetch(document.querySelector('#download').href)).blob()).size);

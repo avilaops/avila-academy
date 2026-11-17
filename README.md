@@ -53,3 +53,11 @@ A integração usa os endpoints publicados pelo discovery do Auth. A conclusão 
 ## Próximas entregas
 
 A biblioteca desta versão organiza gravações pelos campos informados. Edição de catálogo, publicação, área do aluno, matrícula, pagamento, mentorias, vídeo ao vivo e domínio real ainda estão em desenvolvimento, conforme o roadmap.
+
+## Catálogo do produtor
+
+A seção Meus cursos cria cursos com descrição, módulos ordenados e aulas vinculadas às gravações concluídas. O produtor pode renomear cursos, módulos e aulas e mover módulos para cima. A API exige a mesma sessão de produtor da biblioteca e verifica a academia em cada acesso e vínculo.
+
+Uma aula pode ser marcada como publicada ou voltar a rascunho. Esse estado fica persistido para a futura área do aluno. Nesta entrega ainda não há matrícula ou reprodução por aluno. A ordenação dos módulos exige a lista completa sem duplicações e é aplicada em uma única transação.
+
+O estúdio permite pausar, continuar e finalizar uma captura pausada. Os testes do navegador exercitam pausa e retomada nos quatro modos de gravação.

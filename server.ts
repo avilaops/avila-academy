@@ -13,6 +13,7 @@ const brands = new Map([
 ]);
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
+  ['/courses.js', ['courses.js', 'text/javascript']],
   ['/sync.js', ['sync.js', 'text/javascript']],
   ['/studio.js', ['studio.js', 'text/javascript']],
   ['/composition.js', ['composition.js', 'text/javascript']],
@@ -30,7 +31,7 @@ export function academyServer(options = {}) {
     if (!brand) { res.writeHead(421).end(); return; }
     const tenant = host === 'demo.localhost' ? 'demo' : 'abraao';
     if (req.url?.startsWith('/auth/')) { await authenticate(req,res,tenant); return; }
-    if (req.url?.startsWith('/api/recordings')) {
+    if ((req.url?.startsWith('/api/recordings') || req.url?.startsWith('/api/courses'))) {
       const authorized = await authenticate(req,res,tenant);
       if (!authorized) { res.writeHead(401).end(); return; }
       if (req.method !== 'GET' && req.headers.origin !== 'http://'+req.headers.host && req.headers.origin !== 'https://'+req.headers.host) { res.writeHead(403).end(); return; }

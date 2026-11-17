@@ -84,6 +84,7 @@ el('settings').onsubmit = async event => {
     session.onstop = async () => {
       release();
       el('stop').hidden = true;
+      el('pause').hidden = true;
       recorder = undefined;
       try {
         if (!chunks.length) { message('A gravação terminou sem dados. Grave novamente.'); return; }
@@ -113,6 +114,8 @@ el('settings').onsubmit = async event => {
     preview.play().catch(() => {});
     el('download').hidden = true;
     el('stop').hidden = false;
+    el('pause').hidden = false;
+    el('pause').textContent = 'Pausar gravação';
     message('Gravação em andamento. Mantenha esta aba aberta.');
   } catch (error) {
     release();
@@ -121,7 +124,18 @@ el('settings').onsubmit = async event => {
     message(error.name === 'NotAllowedError' ? 'Permissão negada ou seleção cancelada. Tente novamente.' : 'Não foi possível iniciar. Verifique os dispositivos e o suporte do navegador.');
   }
 };
-el('stop').onclick = () => { if (recorder?.state === 'recording') recorder.stop(); };
+el('pause').onclick = () => {
+  if (recorder?.state === 'recording') {
+    recorder.pause();
+    el('pause').textContent = 'Continuar gravação';
+    message('Gravação pausada. A prévia continua ativa.');
+  } else if (recorder?.state === 'paused') {
+    recorder.resume();
+    el('pause').textContent = 'Pausar gravação';
+    message('Gravação em andamento. Mantenha esta aba aberta.');
+  }
+};
+el('stop').onclick = () => { if (recorder && recorder.state !== 'inactive') recorder.stop(); };
 window.addEventListener('beforeunload', event => { if (busy) { event.preventDefault(); event.returnValue = ''; } });
 
 const brand = await fetch('/api/academy').then(response => response.json());

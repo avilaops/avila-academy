@@ -1,0 +1,103 @@
+const root=document.getElementById('catalog');
+const status=document.getElementById('catalog-status');
+const form=document.getElementById('create-course');
+async function api(path,method='GET',data) {
+  const response=await fetch('/api/courses'+path,{method,headers:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)});
+  if(!response.ok) throw Error(response.status===401?'Entre com sua conta para organizar os cursos.':'Não foi possível salvar. Confira os dados e tente novamente.');
+  return response.json();
+}
+function input(label,value='',multiline=false) {
+  const wrapper=document.createElement('label');
+  wrapper.textContent=label;
+  const field=document.createElement(multiline?'textarea':'input');
+  field.value=value;field.required=!multiline;field.maxLength=multiline?10000:160;
+  wrapper.append(field);
+  return {wrapper,field};
+}
+function button(label,action) {
+  const element=document.createElement('button');
+  element.type='button';element.textContent=label;
+  element.onclick=async()=>{
+    element.disabled=true;
+    try {await action();await refresh();status.textContent='Catálogo atualizado.';}
+    catch(error){status.textContent=error.message;}
+    finally {element.disabled=false;}
+  };
+  return element;
+}
+function heading(tag,text) {
+  const element=document.createElement(tag);element.textContent=text;return element;
+}
+function creation(label,action) {
+  const form=document.createElement('form');
+  const {wrapper,field}=input(label);
+  const submit=document.createElement('button');submit.textContent='Adicionar';
+  form.append(wrapper,submit);
+  form.onsubmit=async event=>{
+    event.preventDefault();submit.disabled=true;
+    try {await action(field.value);await refresh();status.textContent='Catálogo atualizado.';}
+    catch(error){status.textContent=error.message;}
+    finally {submit.disabled=false;}
+  };
+  return form;
+}
+async function refresh() {
+  const courses=await api('');
+  const response=await fetch('/api/recordings');
+  if(!response.ok) throw Error('Não foi possível carregar as gravações.');
+  const recordings=(await response.json()).filter(record=>record.state==='ready');
+  root.replaceChildren();
+  for(const course of courses) {
+    const section=document.createElement('section');
+    section.className='course';
+    section.append(heading('h3',course.title));
+    const title=input('Nome do curso',course.title);
+    const description=input('Descrição',course.description,true);
+    section.append(title.wrapper,description.wrapper,button('Salvar curso',()=>api('/'+course.id,'PATCH',{title:title.field.value,description:description.field.value})));
+    course.modules.forEach((module,index)=>{
+      const unit=document.createElement('article');
+      unit.append(heading('h4',module.title));
+      const name=input('Nome do módulo',module.title);
+      unit.append(name.wrapper,button('Salvar módulo',()=>api('/'+module.id,'PATCH',{title:name.field.value})));
+      if(index>0) unit.append(button('Mover módulo para cima',async()=>{
+        // Ordered positions are assigned in one request in the API.
+        await api('/'+course.id+'/reorder','POST',{ids:course.modules.map(item=>item.id).toSpliced(index-1,2,module.id,course.modules[index-1].id)});
+      }));
+      for(const lesson of module.lessons) {
+        const row=document.createElement('div');
+        const label=input('Título da aula',lesson.title);
+        row.append(label.wrapper,button('Salvar título',()=>api('/'+lesson.id,'PATCH',{title:label.field.value})),
+          button(lesson.published?'Voltar para rascunho':'Marcar como publicada',()=>api('/'+lesson.id,'PATCH',{published:!lesson.published})));
+        row.append(heading('p',lesson.published?'Publicada':'Rascunho'));
+        unit.append(row);
+      }
+      if(recordings.length){
+        const add=document.createElement('form');
+        const label=document.createElement('label');label.textContent='Gravação para adicionar como aula';
+        const select=document.createElement('select');
+        for(const record of recordings){
+          const option=document.createElement('option');option.value=record.id;option.textContent=record.title;select.append(option);
+        }
+        const submit=document.createElement('button');submit.textContent='Adicionar aula';label.append(select);add.append(label,submit);
+        add.onsubmit=async event=>{
+          event.preventDefault();submit.disabled=true;
+          try {const record=recordings.find(item=>item.id===select.value);await api('/'+module.id+'/lessons','POST',{recordingId:record.id,title:record.title});await refresh();}
+          catch(error){status.textContent=error.message;}finally{submit.disabled=false;}
+        };
+        unit.append(add);
+      }
+      section.append(unit);
+    });
+    section.append(creation('Novo módulo',title=>api('/'+course.id+'/modules','POST',{title})));
+    root.append(section);
+  }
+  if(!courses.length)root.textContent='Nenhum curso cadastrado.';
+}
+form.onsubmit=async event=>{
+  event.preventDefault();
+  const submit=form.querySelector('button');
+  submit.disabled=true;
+  try {await api('','POST',{title:document.getElementById('new-course').value});form.reset();await refresh();}
+  catch(error){status.textContent=error.message;}finally{submit.disabled=false;}
+};
+refresh().catch(error=>{status.textContent=error.message;});

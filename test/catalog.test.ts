@@ -31,3 +31,34 @@ test('upload retoma após reiniciar, recusa conflito e isola academias',async t=
   assert.equal((await call(path+'/media','GET',undefined,'b')).status,404);
   assert.equal((await call(path+'/chunks?number=2','PUT','ghi')).status,409);
 });
+
+test('catálogo autoriza cada academia e reordena módulos atomicamente',async t=>{
+  const directory=await mkdtemp(join(tmpdir(),'academy-courses-'));
+  const store=catalog(directory);
+  const server=createServer((req,res)=>store.handle(req,res,req.headers['x-tenant']??'a')).listen(0,'127.0.0.1');
+  await once(server,'listening');
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));store.close();await rm(directory,{recursive:true});});
+  const base='http://127.0.0.1:'+server.address().port;
+  const call=(path,method='GET',body,tenant='a')=>fetch(base+path,{method,body:body===undefined?undefined:JSON.stringify(body),headers:{'x-tenant':tenant}});
+  const course=await (await call('/api/courses','POST',{title:'Curso completo'})).json();
+  const first=await (await call('/api/courses/'+course.id+'/modules','POST',{title:'Introdução'})).json();
+  const second=await (await call('/api/courses/'+course.id+'/modules','POST',{title:'Prática'})).json();
+  assert.equal((await call('/api/courses/'+course.id+'/modules','POST',{title:'Intruso'},'b')).status,404);
+  assert.equal((await call('/api/courses/'+first.id,'PATCH',{title:'Intruso'},'b')).status,404);
+  assert.equal((await call('/api/courses/'+course.id+'/reorder','POST',{ids:[second.id,second.id]})).status,400);
+  assert.equal((await call('/api/courses/'+course.id+'/reorder','POST',{ids:[second.id,first.id]})).status,200);
+  const outline=await (await call('/api/courses')).json();
+  assert.equal(outline[0].modules[0].id,second.id);
+  const recording=await (await call('/api/recordings','POST',{title:'Aula',course:'Curso',unit:'Módulo',mime:'video/webm'})).json();
+  assert.equal((await call('/api/courses/'+first.id+'/lessons','POST',{title:'Aula',recordingId:recording.id})).status,404);
+  const upload=await fetch(base+'/api/recordings/'+recording.id+'/chunks?number=0',{method:'PUT',body:'video'});
+  assert.equal(upload.status,200);
+  await call('/api/recordings/'+recording.id+'/complete','POST');
+  const lesson=await (await call('/api/courses/'+first.id+'/lessons','POST',{title:'Aula',recordingId:recording.id})).json();
+  assert(lesson.id);
+  assert.equal((await call('/api/courses/'+lesson.id,'PATCH',{published:true},'b')).status,404);
+  assert.equal((await call('/api/courses/'+lesson.id,'PATCH',{published:true})).status,200);
+  const b=await (await call('/api/courses','GET',undefined,'b')).json();
+  assert.deepEqual(b,[]);
+  assert.equal((await call('/api/courses','POST',{title:'   '})).status,400);
+});
