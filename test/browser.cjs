@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--auto-select-desktop-capture-source=Entire screen']});
 try {
 const context=await browser.newContext();
+context.setDefaultTimeout(15000);
 let page=await context.newPage();
 const errors=[];
 page.on('pageerror',error=>errors.push(error.message));
@@ -67,7 +68,8 @@ await page.close();
 page=await context.newPage();
 page.on('pageerror',error=>errors.push(error.message));
 await page.goto('http://abraao.localhost:3071');
-await page.waitForFunction(()=>document.getElementById('drafts').textContent.length>0);
+console.log('interface recuperacao',await page.evaluate(()=>({status:document.getElementById('status').textContent,buttons:document.getElementById('drafts').textContent})),errors);
+await page.waitForFunction(()=>document.getElementById('drafts').textContent.length>0,{},{timeout:15000});
 console.log('recuperacao',await page.evaluate(async()=>{
   const {drafts}=await import('/storage.js');
   return {labels:await drafts('list'),status:document.getElementById('status').textContent,buttons:document.getElementById('drafts').textContent};
