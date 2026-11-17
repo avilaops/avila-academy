@@ -16,6 +16,7 @@ function lock(value) {
   for (const button of el('drafts').querySelectorAll('button')) button.disabled = value;
 }
 function review(draft) {
+  window.dispatchEvent(new CustomEvent('academy:draft', { detail: draft }));
   preview.srcObject = null;
   if (objectURL) URL.revokeObjectURL(objectURL);
   objectURL = URL.createObjectURL(draft.blob);

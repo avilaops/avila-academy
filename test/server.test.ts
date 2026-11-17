@@ -26,3 +26,15 @@ test('cada domínio recebe sua marca e domínios desconhecidos são recusados', 
     if (name) assert.equal(JSON.parse(reply.text).name, name);
   }
 });
+
+test('biblioteca exige sessão e login sem configuração não libera acesso',async t=>{
+  const server=academyServer().listen(0,'127.0.0.1');
+  await once(server,'listening');
+  t.after(()=>server.close());
+  const address=server.address();
+  assert(address && typeof address!=='string');
+  const base='http://127.0.0.1:'+address.port;
+  assert.equal((await fetch(base+'/api/recordings')).status,401);
+  assert.equal((await fetch(base+'/auth/login',{redirect:'manual'})).status,503);
+  assert.equal((await fetch(base+'/auth/callback?state=forjado&code=falso')).status,401);
+});

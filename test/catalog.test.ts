@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createServer} from 'node:http';
+import {once} from 'node:events';
+import {catalog} from '../catalog.ts';
+
+test('upload retoma após reiniciar, recusa conflito e isola academias',async t=>{
+  const directory=await mkdtemp(join(tmpdir(),'academy-'));
+  let store=catalog(directory);
+  const server=createServer((req,res)=>store.handle(req,res,req.headers['x-tenant']??'a')).listen(0,'127.0.0.1');
+  await once(server,'listening');
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));store.close();await rm(directory,{recursive:true});});
+  const base='http://127.0.0.1:'+server.address().port;
+  const call=(path,method='GET',body,tenant='a')=>fetch(base+path,{method,body,headers:{'x-tenant':tenant}});
+  const created=await call('/api/recordings','POST',JSON.stringify({title:'Aula',course:'Curso',unit:'Módulo',mime:'video/webm'}));
+  assert.equal(created.status,201);
+  const {id}=await created.json();
+  const path='/api/recordings/'+id;
+  assert.equal((await call(path+'/chunks?number=0','PUT','abc')).status,200);
+  assert.equal((await call(path+'/chunks?number=0','PUT','abc')).status,200);
+  assert.equal((await call(path+'/chunks?number=0','PUT','xyz')).status,409);
+  store.close();store=catalog(directory);
+  assert.equal((await (await call('/api/recordings')).json())[0].next_chunk,1);
+  assert.equal((await call(path+'/chunks?number=1','PUT','def')).status,200);
+  assert.equal((await call(path+'/complete','POST')).status,200);
+  assert.equal(await (await call(path+'/media')).text(),'abcdef');
+  assert.deepEqual(await (await call('/api/recordings','GET',undefined,'b')).json(),[]);
+  assert.equal((await call(path+'/media','GET',undefined,'b')).status,404);
+  assert.equal((await call(path+'/chunks?number=2','PUT','ghi')).status,409);
+});

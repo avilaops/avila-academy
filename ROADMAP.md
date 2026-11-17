@@ -6,12 +6,12 @@
 - Captura de câmera, tela, composição de tela com câmera ou áudio.
 - Rascunho associado a curso, módulo e título, reprodução e download.
 
-## 2. Piloto com persistência e contas
+## 2. Piloto com persistência e contas — em andamento
 
-- Integrar o login da Ávila Ops via OIDC. Associar papéis de produtor, aluno e administrador a cada academia.
+- Implementado o cliente OIDC/PKCE e a autorização de produtores por subject. Pendente cadastrar credenciais e validar login real. Integrar o login da Ávila Ops via OIDC. Associar papéis de produtor, aluno e administrador a cada academia.
 - Modelar academias, domínios, membros, cursos, módulos, aulas e mídias no PostgreSQL e aplicar autorização no servidor.
 - Criar o catálogo do produtor com ordenação de módulos, upload de vídeos existentes e anexos.
-- Enviar a gravação em partes, retomar transferências interrompidas e processar vídeo de forma assíncrona.
+- Implementado envio em partes com retomada após falha e persistência SQLite. Pendente envio durante a captura, processamento assíncrono e migração para PostgreSQL/objetos.
 - Incluir prévia dos dispositivos antes da captura, teste de som e pausa.
 - Aceite: o Abraão consegue gravar em um computador e revisar em outro. Um produtor da academia de teste só acessa os próprios cursos e arquivos.
 

@@ -32,3 +32,24 @@ A captura usa áudio do microfone. A seleção de tela depende do navegador. O e
 - `public/storage.js` grava mídia e metadados na mesma transação.
 - `npm test` verifica marcas por domínio e rejeição de domínio desconhecido.
 - O fluxo de CI executa também `test/browser.cjs` no Chromium com dispositivos simulados para verificar gravação, persistência e separação dos rascunhos por origem.
+
+## Biblioteca persistente e login OIDC
+
+O estúdio agora permite enviar o rascunho ao servidor após a revisão. A transferência ocorre em partes de 4 MiB e pode ser retomada clicando novamente em salvar. O identificador remoto permanece no rascunho local. Partes repetidas são aceitas apenas se os bytes coincidirem. A biblioteca lista as aulas da academia por curso e módulo e permite abrir gravações concluídas.
+
+Nesta fase os metadados e as partes de vídeo usam SQLite nativo do Node, no diretório `data`. Trata-se de uma decisão para permitir execução e testes sem provisionar infraestrutura. PostgreSQL e armazenamento de objetos continuam previstos para operação comercial. Os dados não são versionados. Defina DATA_DIRECTORY para um volume persistente e faça backup consistente do SQLite, incluindo o WAL ou usando a API de backup.
+
+A biblioteca exige sessão de produtor. O login usa o Auth da Ávila Ops com código de autorização, PKCE S256, state, nonce e validação RS256 do ID token. Configure no ambiente do processo, sem versionar segredos:
+
+- OIDC_CLIENT_ID e OIDC_CLIENT_SECRET do cliente cadastrado no Auth.
+- PUBLIC_ORIGIN com a origem exata do piloto, sem barra final.
+- ACADEMY_PRODUCERS com JSON que associa academia aos subjects OIDC autorizados, por exemplo `{"abraao":["subject-do-produtor"]}`.
+- Registrar no Auth a URI PUBLIC_ORIGIN seguida de `/auth/callback`.
+
+O servidor local reconhece abraao.localhost e demo.localhost. Para um domínio real é necessário cadastrar a associação validada de domínio no servidor e configurar HTTPS. A configuração atual habilita login em uma origem por instância. As sessões têm duração de oito horas, ficam em memória e são invalidadas ao reiniciar. O botão Sair encerra a sessão da Academy. Sem credenciais OIDC configuradas, o estúdio local funciona e a biblioteca permanece protegida.
+
+A integração usa os endpoints publicados pelo discovery do Auth. A conclusão do login com uma conta real depende do cadastro do cliente e dos subjects. Essa etapa ainda não foi validada de ponta a ponta.
+
+## Próximas entregas
+
+A biblioteca desta versão organiza gravações pelos campos informados. Edição de catálogo, publicação, área do aluno, matrícula, pagamento, mentorias, vídeo ao vivo e domínio real ainda estão em desenvolvimento, conforme o roadmap.
