@@ -62,7 +62,7 @@ test('sessões OIDC assinadas distinguem produtor de aluno sem liberar APIs de a
   assert.equal(create.status,201);
   const {id}=await create.json();
   const student=await login('student');
-  for(const path of ['/api/courses','/api/recordings','/api/enrollments']){
+  for(const path of ['/api/courses','/api/recordings','/api/enrollments','/api/attachments/00000000-0000-0000-0000-000000000000']){
     assert.equal((await fetch(origin+path,{headers:{Cookie:student}})).status,403);
   }
   assert.deepEqual(await (await fetch(origin+'/api/student/courses',{headers:{Cookie:student}})).json(),[]);

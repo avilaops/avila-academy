@@ -6,7 +6,7 @@ Plataforma white label da Ávila Ops para produtores organizarem cursos, treinam
 
 O professor informa curso, módulo e título, seleciona uma fonte e grava no navegador. Há quatro modos de captura: câmera e microfone, tela e microfone, tela com câmera sobreposta e microfone, ou apenas microfone. Ao finalizar, pode assistir, baixar o arquivo e reabrir o rascunho após recarregar a página.
 
-A marca é selecionada pelo domínio. Os dois ambientes de desenvolvimento têm origens distintas e cada navegador armazena os próprios rascunhos em IndexedDB. O servidor conhece apenas as marcas locais. Autenticação, autorização, persistência compartilhada e publicação para alunos estão no [roadmap](ROADMAP.md).
+A marca é selecionada pelo domínio. Os dois ambientes de desenvolvimento têm origens distintas e cada navegador armazena os próprios rascunhos em IndexedDB. O servidor conhece apenas as marcas locais. O piloto inclui sessões OIDC de produtor/aluno, biblioteca no servidor, catálogo, matrículas e reprodução autorizada. O estado de implantação e as entregas restantes estão no [roadmap](ROADMAP.md).
 
 ## Executar
 
@@ -48,17 +48,17 @@ A biblioteca exige sessão de produtor. O login usa o Auth da Ávila Ops com có
 
 O servidor local reconhece abraao.localhost e demo.localhost. Para um domínio real é necessário cadastrar a associação validada de domínio no servidor e configurar HTTPS. A configuração atual habilita login em uma origem por instância. As sessões têm duração de oito horas, ficam em memória e são invalidadas ao reiniciar. O botão Sair encerra a sessão da Academy. Sem credenciais OIDC configuradas, o estúdio local funciona e a biblioteca permanece protegida.
 
-A integração usa os endpoints publicados pelo discovery do Auth. A conclusão do login com uma conta real depende do cadastro do cliente e dos subjects. Essa etapa ainda não foi validada de ponta a ponta.
+A integração usa os endpoints publicados pelo discovery do Auth. O cliente real já está cadastrado. A conclusão do login com uma conta real depende de publicar a origem e configurar os acessos e produtores. Essa etapa ainda não foi validada de ponta a ponta.
 
 ## Próximas entregas
 
-A biblioteca desta versão organiza gravações pelos campos informados. Edição de catálogo, publicação, área do aluno, matrícula, pagamento, mentorias, vídeo ao vivo e domínio real ainda estão em desenvolvimento, conforme o roadmap.
+As próximas entregas incluem envio durante a captura, PostgreSQL e objetos, publicação da origem com login real, personalização de domínios, mentorias, vídeo ao vivo e pagamentos, conforme o roadmap.
 
 ## Catálogo do produtor
 
 A seção Meus cursos cria cursos com descrição, módulos ordenados e aulas vinculadas às gravações concluídas. O produtor pode renomear cursos, módulos e aulas e mover módulos para cima. A API exige a mesma sessão de produtor da biblioteca e verifica a academia em cada acesso e vínculo.
 
-Uma aula pode ser marcada como publicada ou voltar a rascunho. Esse estado fica persistido para a futura área do aluno. Nesta entrega ainda não há matrícula ou reprodução por aluno. A ordenação dos módulos exige a lista completa sem duplicações e é aplicada em uma única transação.
+Uma aula pode ser marcada como publicada ou voltar a rascunho. Esse estado controla a visibilidade da aula para alunos com matrícula ativa. A ordenação dos módulos exige a lista completa sem duplicações e é aplicada em uma única transação.
 
 O estúdio permite pausar, continuar e finalizar uma captura pausada. Os testes do navegador exercitam pausa e retomada nos quatro modos de gravação.
 
@@ -68,7 +68,7 @@ Use **Testar câmera e microfone** para abrir a prévia antes de gravar. O indic
 
 Também é possível selecionar uma aula já gravada em **Importar aula gravada**. São aceitos arquivos com MIME MP4, WebM ou Ogg, de áudio ou vídeo, não vazios e de até 1 GiB. Curso e módulo são obrigatórios. Se o título estiver vazio, ele é sugerido pelo nome do arquivo. O arquivo passa a ser um rascunho local revisável, com o mesmo envio retomável ao servidor. Compatibilidade de reprodução depende dos codecs suportados pelo navegador. O limite de armazenamento local também depende do espaço e da quota do navegador.
 
-Os testes do Chrome verificam liberação dos dispositivos ao encerrar a prévia, prévia sem início de gravação, gravação e pausa nos quatro modos, importação com persistência após recarregar e rejeição de formato incompatível. O cadastro OIDC e o envio com conta real continuam pendentes de configuração e validação.
+Os testes do Chrome verificam liberação dos dispositivos ao encerrar a prévia, prévia sem início de gravação, gravação e pausa nos quatro modos, importação com persistência após recarregar e rejeição de formato incompatível. O cliente OIDC real já está cadastrado. O envio com conta real continua pendente de implantação e validação.
 
 ## Alunos, matrículas e progresso
 
@@ -78,6 +78,20 @@ No catálogo do produtor, a seção Alunos libera cursos pelo identificador est�
 
 O login agora cria uma sessão de aluno para contas OIDC válidas que não constam na configuração de produtores. Essa sessão só acessa conteúdo com matrícula ativa. As APIs de catálogo, gravações e matrículas continuam exclusivas dos produtores. A área do aluno só recebe aulas publicadas com mídia concluída, dentro da própria academia. Cada nova requisição de vídeo e progresso verifica novamente a matrícula. Bytes já recebidos pelo navegador não podem ser revogados.
 
-Os testes de sessão usam tokens RS256 assinados por uma chave gerada no próprio teste e respostas locais para os endpoints do provedor. Eles verificam separação de papéis, CSRF e encerramento de sessão pelo servidor HTTP real. Isso não substitui a validação com o Auth em produção, ainda pendente de cadastro do cliente.
+Os testes de sessão usam tokens RS256 assinados por uma chave gerada no próprio teste e respostas locais para os endpoints do provedor. Eles verificam separação de papéis, CSRF e encerramento de sessão pelo servidor HTTP real. Isso não substitui a validação com o Auth em produção, ainda pendente de implantação e acesso com uma conta real.
 
 Os testes de aprendizagem verificam matrícula, isolamento entre academias e alunos, publicação, ocultação de rascunhos, revogação, reativação, persistência do progresso após reinício e leitura de trechos do vídeo. A persistência desta etapa continua em SQLite.
+
+## Materiais complementares
+
+Cada aula aceita PDF, PNG, JPEG, TXT e ZIP de até 25 MiB por arquivo. O produtor pode enviar, baixar e remover materiais no catálogo. Cada envio usa um identificador para que repetir a mesma requisição não duplique o arquivo. Reutilizar o identificador com conteúdo diferente é recusado.
+
+O aluno vê os materiais junto ao player. Cada download verifica academia, matrícula ativa e publicação da aula. Os arquivos são entregues como anexos para download, com proteção contra interpretação do conteúdo pelo navegador. Os testes cobrem repetição de upload, conflito, isolamento, persistência após reinício e revogação do download. Nesta etapa os arquivos ficam no SQLite do piloto.
+
+## Cadastro real no Auth
+
+Em 17/11/2026 foi cadastrada a aplicação planejada `academy`, com cliente confidencial `academy-web` e retorno exato `https://academy.avilaops.com/auth/callback`. Esse endereço foi escolhido para preparar a implantação. O domínio ainda não foi publicado pela Academy. A aplicação permanece restrita no Auth, e os produtores ainda precisam ser associados a contas reais.
+
+O endpoint real de tokens reconheceu a credencial. Uma requisição de verificação com código deliberadamente inválido retornou `invalid_grant`, em vez de `invalid_client`. Essa verificação não é um login concluído.
+
+A configuração privada está no servidor applications em `/opt/avila-academy/config/oidc.env`, com permissão 600. Ela não está no GitHub. Não imprima nem copie seu conteúdo para logs. O script `scripts/register-auth.cjs` documenta o cadastro e confere o cliente existente sem rotacionar o segredo. Ele depende do Prisma e da configuração de banco do container do Auth e recebe como argumento o caminho do arquivo privado. Para conferir um cadastro existente, o arquivo correspondente precisa estar disponível nesse caminho. Após o cadastro, as cópias temporárias foram removidas do container do Auth.

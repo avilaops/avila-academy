@@ -43,6 +43,11 @@ function play(lesson) {
   video.onerror=()=>{status.textContent='A aula está indisponível. Confira seu acesso ou tente novamente.';};
   complete.onclick=()=>save(true);
   player.replaceChildren(text('h2',lesson.title),video,text('p',lesson.description),complete);
+  for(const file of lesson.attachments??[]) {
+    const link=document.createElement('a');link.textContent=file.name;
+    link.href='/api/student/lessons/'+lesson.id+'/attachments/'+file.id;
+    const row=document.createElement('p');row.append(link);player.append(row);
+  }
 }
 async function load() {
   const brand=await (await fetch('/api/academy')).json();

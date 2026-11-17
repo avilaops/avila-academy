@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
+import {randomUUID} from 'node:crypto';
 import {catalog} from '../catalog.ts';
 
 test('matrícula controla publicação, progresso e mídia, com revogação imediata nas novas requisições',async t=>{
@@ -25,6 +26,26 @@ test('matrícula controla publicação, progresso e mídia, com revogação imed
   }
   await call('/api/recordings/'+recording.id+'/complete','POST');
   const lesson=await create('/api/courses/'+module.id+'/lessons',{title:'Aula',recordingId:recording.id});
+  const materialId=randomUUID();
+  const materialPath='/api/attachments/'+lesson.id;
+  const uploadMaterial=(data='material',tenant='a')=>fetch(base+materialPath+'?name=Guia.pdf',{
+    method:'POST',headers:{'Content-Type':'application/pdf','X-Upload-Id':materialId,'x-tenant':tenant},body:data
+  });
+  const oversize=await fetch(base+materialPath+'?name=Grande.pdf',{
+    method:'POST',headers:{'Content-Type':'application/pdf','X-Upload-Id':randomUUID()},body:Buffer.alloc(25*1024*1024+1)
+  });
+  assert.equal(oversize.status,413);
+  const forbidden=await fetch(base+materialPath+'?name=pagina.html',{
+    method:'POST',headers:{'Content-Type':'text/html','X-Upload-Id':randomUUID()},body:'<h1>Arquivo</h1>'
+  });
+  assert.equal(forbidden.status,400);
+  assert.equal((await uploadMaterial()).status,201);
+  assert.equal((await uploadMaterial()).status,200);
+  assert.equal((await uploadMaterial('conteúdo diferente')).status,409);
+  assert.equal((await uploadMaterial('material','b')).status,404);
+  assert.equal((await call(materialPath+'/'+materialId,'DELETE',undefined,{'x-tenant':'b'})).status,404);
+  const studentMaterial='/api/student/lessons/'+lesson.id+'/attachments/'+materialId;
+  assert.equal((await call(studentMaterial)).status,404);
   const media='/api/student/lessons/'+lesson.id+'/media';
   const progress='/api/student/lessons/'+lesson.id+'/progress';
   assert.equal((await call(media)).status,404);
@@ -34,6 +55,12 @@ test('matrícula controla publicação, progresso e mídia, com revogação imed
   assert.equal((await call(media)).status,404);
   await call('/api/courses/'+lesson.id,'PATCH',{published:true});
   assert.equal(await (await call(media)).text(),'abcdef');
+  const material=await call(studentMaterial);
+  assert.equal(material.status,200);assert.equal(await material.text(),'material');
+  assert.equal(material.headers.get('content-type'),'application/octet-stream');
+  assert.match(material.headers.get('content-disposition'),/^attachment;/);
+  assert.equal((await call(studentMaterial,'GET',undefined,{'x-subject':'stranger'})).status,404);
+  assert.equal((await call(studentMaterial,'GET',undefined,{'x-tenant':'b'})).status,404);
   const range=await call(media,'GET',undefined,{Range:'bytes=2-4'});
   assert.equal(range.status,206);assert.equal(range.headers.get('content-range'),'bytes 2-4/6');
   assert.equal(await range.text(),'cde');
@@ -46,6 +73,8 @@ test('matrícula controla publicação, progresso e mídia, com revogação imed
   store.close();store=catalog(directory);
   const outline=await (await call('/api/student/courses')).json();
   assert.equal(outline[0].modules[0].lessons[0].seconds,42);
+  assert.equal(outline[0].modules[0].lessons[0].attachments[0].name,'Guia.pdf');
+  assert.equal(await (await call(studentMaterial)).text(),'material');
   assert.equal(outline[0].modules[0].lessons[0].completed,1);
   const [enrollment]=await (await call('/api/enrollments')).json();
   assert.equal((await call('/api/enrollments/'+enrollment.id,'PATCH',{active:false},{'x-tenant':'b'})).status,404);
@@ -53,8 +82,12 @@ test('matrícula controla publicação, progresso e mídia, com revogação imed
   assert.deepEqual(await (await call('/api/student/courses')).json(),[]);
   assert.equal((await call(media)).status,404);
   assert.equal((await call(progress,'POST',{seconds:43,completed:true})).status,404);
+  assert.equal((await call(studentMaterial)).status,404);
   await call('/api/enrollments','POST',{courseId:course.id,subject:'student'});
   assert.equal((await (await call('/api/enrollments')).json()).length,1);
   await call('/api/courses/'+lesson.id,'PATCH',{published:false});
+  assert.equal((await call(studentMaterial)).status,404);
+  assert.equal((await call(materialPath+'/'+materialId,'DELETE')).status,200);
+  assert.equal((await call(materialPath+'/'+materialId)).status,404);
   assert.equal((await call(media)).status,404);
 });

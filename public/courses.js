@@ -41,6 +41,46 @@ function creation(label,action) {
   };
   return form;
 }
+async function materialPanel(lesson) {
+  const panel=document.createElement('section');
+  panel.append(heading('h5','Materiais da aula'));
+  const endpoint='/api/attachments/'+lesson.id;
+  const response=await fetch(endpoint);
+  if(!response.ok)throw Error('Não foi possível carregar os materiais.');
+  for(const file of await response.json()) {
+    const row=document.createElement('p');
+    const link=document.createElement('a');
+    link.href=endpoint+'/'+file.id;link.textContent=file.name;
+    row.append(link,button('Remover material',async()=>{
+      const result=await fetch(endpoint+'/'+file.id,{method:'DELETE'});
+      if(!result.ok)throw Error('Não foi possível remover o material.');
+    }));
+    panel.append(row);
+  }
+  const upload=document.createElement('form');
+  const label=document.createElement('label');label.textContent='Adicionar material (até 25 MiB)';
+  const file=document.createElement('input');file.type='file';file.required=true;
+  file.accept='.pdf,.png,.jpg,.jpeg,.txt,.zip';
+  let uploadId=crypto.randomUUID();
+  file.onchange=()=>{uploadId=crypto.randomUUID();};
+  const submit=document.createElement('button');submit.textContent='Enviar material';
+  label.append(file);upload.append(label,submit);panel.append(upload);
+  upload.onsubmit=async event=>{
+    event.preventDefault();
+    const selected=file.files[0];
+    if(!selected||!selected.size||selected.size>25*1024*1024){status.textContent='Escolha um material de até 25 MiB.';return;}
+    submit.disabled=true;
+    try {
+      const result=await fetch(endpoint+'?name='+encodeURIComponent(selected.name),{
+        method:'POST',headers:{'Content-Type':selected.type,'X-Upload-Id':uploadId},body:selected
+      });
+      if(!result.ok)throw Error('Não foi possível enviar. Use PDF, PNG, JPEG, TXT ou ZIP.');
+      await refresh();status.textContent='Material adicionado.';
+    }catch(error){status.textContent=error.message;}
+    finally{submit.disabled=false;}
+  };
+  return panel;
+}
 async function refresh() {
   const courses=await api('');
   const response=await fetch('/api/recordings');
@@ -57,7 +97,7 @@ async function refresh() {
     const title=input('Nome do curso',course.title);
     const description=input('Descrição',course.description,true);
     section.append(title.wrapper,description.wrapper,button('Salvar curso',()=>api('/'+course.id,'PATCH',{title:title.field.value,description:description.field.value})));
-    course.modules.forEach((module,index)=>{
+    for(const [index,module] of course.modules.entries()){
       const unit=document.createElement('article');
       unit.append(heading('h4',module.title));
       const name=input('Nome do módulo',module.title);
@@ -72,6 +112,7 @@ async function refresh() {
         row.append(label.wrapper,button('Salvar título',()=>api('/'+lesson.id,'PATCH',{title:label.field.value})),
           button(lesson.published?'Voltar para rascunho':'Marcar como publicada',()=>api('/'+lesson.id,'PATCH',{published:!lesson.published})));
         row.append(heading('p',lesson.published?'Publicada':'Rascunho'));
+        row.append(await materialPanel(lesson));
         unit.append(row);
       }
       if(recordings.length){
@@ -90,7 +131,7 @@ async function refresh() {
         unit.append(add);
       }
       section.append(unit);
-    });
+    }
     section.append(creation('Novo módulo',title=>api('/'+course.id+'/modules','POST',{title})));
     section.append(heading('h4','Alunos'));
     section.append(creation('Identificador do aluno no Ávila Ops',async subject=>{

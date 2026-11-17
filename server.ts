@@ -33,7 +33,7 @@ export function academyServer(options = {}) {
     if (!brand) { res.writeHead(421).end(); return; }
     const tenant = host === 'demo.localhost' ? 'demo' : 'abraao';
     if (req.url?.startsWith('/auth/')) { await authenticate(req,res,tenant); return; }
-    if ((req.url?.startsWith('/api/recordings') || req.url?.startsWith('/api/courses') || req.url?.startsWith('/api/enrollments') || req.url?.startsWith('/api/student/'))) {
+    if ((req.url?.startsWith('/api/recordings') || req.url?.startsWith('/api/courses') || req.url?.startsWith('/api/enrollments') || req.url?.startsWith('/api/attachments/') || req.url?.startsWith('/api/student/'))) {
       const authorized = await authenticate(req,res,tenant);
       if (!authorized) { res.writeHead(401).end(); return; }
       if(!req.url.startsWith('/api/student/') && authorized.role!=='producer') {res.writeHead(403).end();return;}

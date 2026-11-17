@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-export function learningCatalog(db, serveMedia) {
+export function learningCatalog(db, serveMedia, attachments) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS enrollments (
       id TEXT PRIMARY KEY, tenant TEXT NOT NULL, course_id TEXT NOT NULL REFERENCES courses(id),
@@ -64,9 +64,15 @@ export function learningCatalog(db, serveMedia) {
               FROM lessons l JOIN recordings r ON r.id=l.recording_id AND r.tenant=? AND r.state='ready'
               LEFT JOIN progress p ON p.lesson_id=l.id AND p.enrollment_id=?
               WHERE l.module_id=? AND l.published=1 ORDER BY l.position,l.id`).all(tenant,course.enrollment_id,module.id);
+            for(const lesson of module.lessons) lesson.attachments=attachments.list(lesson.id);
           }
         }
         send(200,courses);return;
+      }
+      const material=path.match(/^\/api\/student\/lessons\/([a-f0-9-]{36})\/attachments\/([a-f0-9-]{36})$/);
+      if(material && req.method==='GET') {
+        if(!accessible(tenant,subject,material[1])){send(404);return;}
+        attachments.download(res,material[2],material[1]);return;
       }
       const lesson=path.match(/^\/api\/student\/lessons\/([a-f0-9-]{36})\/(media|progress)$/);
       if(!lesson) {send(404);return;}

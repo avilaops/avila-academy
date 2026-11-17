@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { courseCatalog } from './courses.ts';
 import { learningCatalog } from './learning.ts';
 import { serveMedia } from './media.ts';
+import { attachmentsCatalog } from './attachments.ts';
 import { randomUUID } from 'node:crypto';
 
 export function catalog(directory) {
@@ -20,7 +21,8 @@ export function catalog(directory) {
       PRIMARY KEY(recording,number)
     );`);
   const handleCourses = courseCatalog(db);
-  const handleLearning = learningCatalog(db,(req,res,item)=>serveMedia(db,req,res,item));
+  const attachments = attachmentsCatalog(db);
+  const handleLearning = learningCatalog(db,(req,res,item)=>serveMedia(db,req,res,item),attachments);
   function find(tenant,id) { return db.prepare('SELECT * FROM recordings WHERE tenant=? AND id=?').get(tenant,id); }
   async function body(req,limit) {
     const parts=[]; let length=0;
@@ -35,6 +37,7 @@ export function catalog(directory) {
     close:()=>db.close(),
     async handle(req,res,tenant,subject) {
       if(req.url.startsWith('/api/student/') || req.url.startsWith('/api/enrollments')) {await handleLearning(req,res,tenant,subject);return;}
+      if(req.url.startsWith('/api/attachments/')) {await attachments.handle(req,res,tenant);return;}
       if (req.url.startsWith('/api/courses')) { await handleCourses(req,res,tenant); return; }
       const url=new URL(req.url,'http://localhost');
       const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json'}).end(JSON.stringify(data));};

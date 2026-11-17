@@ -57,7 +57,7 @@ await page.goto('http://demo.localhost:3071');await page.getByText('Nenhuma aula
 let progress={seconds:0,completed:0};
 await page.route('**/api/student/courses',route=>route.fulfill({json:[{
   title:'Curso do aluno',description:'Descrição',modules:[{title:'Introdução',lessons:[{
-    id:'fixture-lesson',title:'Aula publicada',description:'Material da aula',...progress
+    id:'fixture-lesson',title:'Aula publicada',description:'Material da aula',attachments:[{id:'fixture-attachment',name:'Guia.pdf'}],...progress
   }]}]
 }]}));
 await page.route('**/api/student/lessons/fixture-lesson/media',route=>route.fulfill({
@@ -72,6 +72,7 @@ await page.route('**/api/student/lessons/fixture-lesson/progress',async route=>{
 await page.goto('http://abraao.localhost:3071/aluno');
 await page.getByRole('button',{name:'Continuar curso'}).click();
 await page.locator('#player video').waitFor();
+assert.equal(await page.getByRole('link',{name:'Guia.pdf',exact:true}).getAttribute('href'),'/api/student/lessons/fixture-lesson/attachments/fixture-attachment');
 await page.getByRole('button',{name:'Marcar como concluída'}).click();
 await page.getByRole('button',{name:'Aula concluída',exact:true}).waitFor();
 await page.reload();
