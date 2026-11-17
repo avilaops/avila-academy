@@ -49,7 +49,13 @@ export function catalog(directory) {
           if(req.method!=='POST') {send(405,{});return;}
           const data=JSON.parse((await body(req,4096)).toString());
           if (!['title','course','unit'].every(key=>typeof data[key]==='string' && data[key].trim() && data[key].length<=160) || !/^(video|audio)\/(webm|mp4|ogg)(;.*)?$/.test(data.mime??'')) {send(400,{error:'Metadados inválidos'});return;}
-          const id=randomUUID();
+          if(data.uploadId!==undefined && (typeof data.uploadId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(data.uploadId))){send(400,{});return;}
+          const id=data.uploadId??randomUUID();
+          const existing=db.prepare('SELECT * FROM recordings WHERE id=?').get(id);
+          if(existing){
+            if(existing.tenant!==tenant||existing.title!==data.title.trim()||existing.course!==data.course.trim()||existing.unit!==data.unit.trim()||existing.mime!==data.mime){send(409,{});return;}
+            send(200,{id});return;
+          }
           db.prepare('INSERT INTO recordings(id,tenant,title,course,unit,mime,created) VALUES(?,?,?,?,?,?,?)').run(id,tenant,data.title.trim(),data.course.trim(),data.unit.trim(),data.mime,Date.now());
           send(201,{id});return;
         }
@@ -67,6 +73,7 @@ export function catalog(directory) {
           db.exec('BEGIN IMMEDIATE');
           try {
             const current=find(tenant,id);
+            if(current.state!=='uploading')throw Error('conflict');
             if (number<current.next_chunk) {
               const previous=db.prepare('SELECT data FROM chunks WHERE recording=? AND number=?').get(id,number);
               if(!previous || !Buffer.from(previous.data).equals(data)) throw Error('conflict');
@@ -80,7 +87,10 @@ export function catalog(directory) {
           send(200,{saved:true});return;
         }
         if(action==='complete' && req.method==='POST') {
-          if(!item.bytes) {send(409,{});return;}
+          const payload=await body(req,4096);
+          const expected=payload.length?JSON.parse(payload.toString()):null;
+          const current=find(tenant,id);
+          if(!current.bytes || expected && (expected.bytes!==current.bytes || expected.chunks!==current.next_chunk)) {send(409,{});return;}
           db.prepare("UPDATE recordings SET state='ready' WHERE id=? AND tenant=?").run(id,tenant);
           send(200,{ready:true});return;
         }

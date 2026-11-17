@@ -3,7 +3,8 @@ const assert=require('node:assert/strict');
 (async()=>{
 const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--auto-select-desktop-capture-source=Entire screen']});
 try {
-const page=await browser.newPage();
+const context=await browser.newContext();
+let page=await context.newPage();
 const errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 await page.goto('http://abraao.localhost:3071');
@@ -52,6 +53,66 @@ assert.equal(await page.evaluate(async()=> (await (await fetch(document.querySel
 await page.locator('#import-media').setInputFiles({name:'invalido.txt',mimeType:'text/plain',buffer:Buffer.from('texto')});
 await page.getByText('Escolha um arquivo', {exact:false}).waitFor();
 assert.deepEqual(errors,[]);
+// Recovery after leaving an active capture uses committed IndexedDB chunks.
+await page.fill('#course','Curso piloto');await page.fill('#unit','Introdução');await page.fill('#title','Captura interrompida');
+await page.click('#record');
+await page.locator('#stop').waitFor();
+await page.waitForFunction(async()=>{
+  const {drafts}=await import('/storage.js');
+  return (await drafts('list')).some(draft=>draft.title==='Captura interrompida'&&draft.captureComplete===false&&draft.bytes>0);
+});
+await page.close();
+page=await context.newPage();
+page.on('pageerror',error=>errors.push(error.message));
+await page.goto('http://abraao.localhost:3071');
+await page.getByRole('button',{name:'Finalizar trecho recuperado: Captura interrompida',exact:true}).click();
+await page.getByText('Trecho recuperado.',{exact:false}).waitFor();
+assert(await page.evaluate(async()=>{
+  const {drafts}=await import('/storage.js');
+  const draft=(await drafts('list')).find(draft=>draft.title==='Captura interrompida');
+  return draft.captureComplete===true&&draft.bytes>0;
+}));
+
+// Mock transport verifies the capture/upload UI independently of the real OIDC deployment.
+let remote;
+let lostResponse=false;
+const uploaded=[];
+await page.route('**/api/recordings',async route=>{
+  if(route.request().method()==='POST'){
+    const data=route.request().postDataJSON();
+    remote={id:data.uploadId,state:'uploading',next_chunk:0,bytes:0,...data};
+    await route.fulfill({status:201,json:{id:remote.id}});
+  }else await route.fulfill({json:remote?[remote]:[]});
+});
+await page.route('**/api/recordings/*/chunks?number=*',async route=>{
+  const index=Number(new URL(route.request().url()).searchParams.get('number'));
+  assert.equal(index,remote.next_chunk);
+  const body=route.request().postDataBuffer();
+  uploaded.push(body);remote.bytes+=body.length;remote.next_chunk++;
+  if(!lostResponse){lostResponse=true;await route.abort('failed');}
+  else await route.fulfill({json:{saved:true}});
+});
+await page.route('**/api/recordings/*/complete',async route=>{
+  const data=route.request().postDataJSON();
+  assert.equal(data.bytes,remote.bytes);assert.equal(data.chunks,remote.next_chunk);
+  remote.state='ready';await route.fulfill({json:{ready:true}});
+});
+await page.fill('#course','Curso piloto');await page.fill('#unit','Introdução');await page.fill('#title','Envio durante captura');
+await page.locator('#live-upload').check();
+await page.click('#record');
+await page.locator('#stop').waitFor();
+for(let attempt=0;attempt<40 && !uploaded.length;attempt++)await page.waitForTimeout(500);
+assert(uploaded.length>0,'Nenhuma parte foi enviada durante a captura');
+assert.equal(remote.state,'uploading');
+await page.click('#stop');
+await page.getByText('Rascunho salvo.',{exact:false}).waitFor();
+await page.getByRole('button',{name:'Salvar aula no servidor',exact:true}).click();
+await page.getByText('Aula salva no servidor.',{exact:false}).waitFor();
+const local=await page.evaluate(async()=>Array.from(new Uint8Array(await (await (await fetch(document.querySelector('#download').href)).blob()).arrayBuffer())));
+assert.deepEqual(Buffer.concat(uploaded),Buffer.from(local));
+assert.equal(remote.state,'ready');
+assert(lostResponse);
+
 await page.goto('http://demo.localhost:3071');await page.getByText('Nenhuma aula gravada.').waitFor();
 // Component fixture only: real session/enrollment authorization is verified in auth.test.ts.
 let progress={seconds:0,completed:0};

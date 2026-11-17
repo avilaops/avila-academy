@@ -11,7 +11,7 @@
 - Implementado o cliente OIDC/PKCE e a autorização de produtores por subject. Cliente academy-web cadastrado no Auth real e credencial reconhecida pelo endpoint de tokens. Pendente publicar a origem e validar login de conta real. Implementada separação de sessões de produtor/aluno, com testes de sessão assinada e autorização HTTP. Pendente papel administrativo e validação de login de conta real no Auth.
 - Modelar academias, domínios, membros, cursos, módulos, aulas e mídias no PostgreSQL e aplicar autorização no servidor.
 - Implementado catálogo de cursos, descrições, módulos ordenados e aulas vinculadas a gravações concluídas, com edição de nomes. Implementada importação de vídeos/áudios existentes como rascunhos, com revisão e envio pelo fluxo existente. Implementados anexos por aula com upload, download, remoção e verificação de matrícula/publicação para alunos.
-- Implementado envio em partes com retomada após falha e persistência SQLite. Pendente envio durante a captura, processamento assíncrono e migração para PostgreSQL/objetos.
+- Implementados salvamento incremental em IndexedDB, recuperação de trechos parciais e envio opcional durante a captura com retomada, validação de finalização e criação idempotente. Persistência do piloto em SQLite. Pendente processamento assíncrono e migração para PostgreSQL/objetos.
 - Implementadas pausa, retomada, prévia antes da captura, encerramento da prévia com liberação de dispositivos e indicador do nível do microfone. A seleção de uma câmera ou microfone específico ainda utiliza o padrão do navegador.
 - Aceite: o Abraão consegue gravar em um computador e revisar em outro. Um produtor da academia de teste só acessa os próprios cursos e arquivos.
 

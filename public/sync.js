@@ -1,47 +1,28 @@
+import {syncDraft} from './upload.js';
 const list=document.getElementById('remote');
 const status=document.getElementById('sync-status');
 const upload=document.getElementById('upload');
 let current;
-window.addEventListener('academy:draft',event=>{current=event.detail;upload.hidden=false;});
-async function request(path,options) {
-  const response=await fetch(path,options);
-  if(response.status===401) throw Error('Entre com sua conta de produtor para sincronizar.');
-  if(!response.ok) throw Error('Falha ao sincronizar. O rascunho local continua disponível.');
-  return response;
-}
+window.addEventListener('academy:draft',event=>{
+  current=event.detail;
+  upload.hidden=false;
+  upload.disabled=current.captureComplete===false;
+});
+window.addEventListener('academy:sync-status',event=>{status.textContent=event.detail;});
+window.addEventListener('academy:remote-updated',refresh);
 upload.onclick=async()=>{
-  if(!current)return;
+  if(!current || current.captureComplete===false)return;
   upload.disabled=true;
-  const draft=current;
-  try {
-    // Persist the remote ID with the local draft so a failed transfer can resume.
-    const {drafts}=await import('./storage.js');
-    if(!draft.remoteId) {
-      const response=await request('/api/recordings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...draft,blob:undefined,mime:draft.blob.type})});
-      draft.remoteId=(await response.json()).id;
-      await drafts('save',draft);
-    }
-    const records=await (await request('/api/recordings')).json();
-    const saved=records.find(item=>item.id===draft.remoteId);
-    if(!saved)throw Error('Gravação do servidor indisponível.');
-    const size=4*1024*1024;
-    if(saved.state==='uploading') {
-      for(let i=saved.next_chunk;i<Math.ceil(draft.blob.size/size);i++) {
-        status.textContent='Enviando parte '+(i+1)+' de '+Math.ceil(draft.blob.size/size);
-        await request('/api/recordings/'+draft.remoteId+'/chunks?number='+i,{method:'PUT',body:draft.blob.slice(i*size,(i+1)*size)});
-      }
-      await request('/api/recordings/'+draft.remoteId+'/complete',{method:'POST'});
-    }
-    status.textContent='Aula salva no servidor.';
-    await refresh();
-  }catch(error){status.textContent=error.message;}
+  try{await syncDraft(current.id);await refresh();}
+  catch(error){status.textContent=error.message;}
   finally{upload.disabled=false;}
 };
 async function refresh(){
   list.replaceChildren();
   try{
-    const records=await (await request('/api/recordings')).json();
-    for(const record of records){
+    const response=await fetch('/api/recordings');
+    if(!response.ok)throw Error('Entre com sua conta de produtor para sincronizar.');
+    for(const record of await response.json()){
       const li=document.createElement('li');
       li.textContent=[record.course,record.unit,record.title].join(' / ');
       if(record.state==='ready'){
@@ -51,7 +32,7 @@ async function refresh(){
       }else li.append(' — envio incompleto');
       list.append(li);
     }
-    if(!records.length) list.textContent='Nenhuma aula no servidor.';
+    if(!list.children.length)list.textContent='Nenhuma aula no servidor.';
   }catch(error){status.textContent=error.message;}
 }
 refresh();

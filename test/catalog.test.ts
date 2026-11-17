@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
+import {randomUUID} from 'node:crypto';
 import {catalog} from '../catalog.ts';
 
 test('upload retoma após reiniciar, recusa conflito e isola academias',async t=>{
@@ -15,9 +16,13 @@ test('upload retoma após reiniciar, recusa conflito e isola academias',async t=
   t.after(async()=>{await new Promise(resolve=>server.close(resolve));store.close();await rm(directory,{recursive:true});});
   const base='http://127.0.0.1:'+server.address().port;
   const call=(path,method='GET',body,tenant='a')=>fetch(base+path,{method,body,headers:{'x-tenant':tenant}});
-  const created=await call('/api/recordings','POST',JSON.stringify({title:'Aula',course:'Curso',unit:'Módulo',mime:'video/webm'}));
+  const metadata={uploadId:randomUUID(),title:'Aula',course:'Curso',unit:'Módulo',mime:'video/webm'};
+  const created=await call('/api/recordings','POST',JSON.stringify(metadata));
   assert.equal(created.status,201);
   const {id}=await created.json();
+  assert.equal((await call('/api/recordings','POST',JSON.stringify(metadata))).status,200);
+  assert.equal((await call('/api/recordings','POST',JSON.stringify({...metadata,title:'Outro'}))).status,409);
+  assert.equal((await call('/api/recordings','POST',JSON.stringify(metadata),'b')).status,409);
   const path='/api/recordings/'+id;
   assert.equal((await call(path+'/chunks?number=0','PUT','abc')).status,200);
   assert.equal((await call(path+'/chunks?number=0','PUT','abc')).status,200);
@@ -25,7 +30,8 @@ test('upload retoma após reiniciar, recusa conflito e isola academias',async t=
   store.close();store=catalog(directory);
   assert.equal((await (await call('/api/recordings')).json())[0].next_chunk,1);
   assert.equal((await call(path+'/chunks?number=1','PUT','def')).status,200);
-  assert.equal((await call(path+'/complete','POST')).status,200);
+  assert.equal((await call(path+'/complete','POST',JSON.stringify({bytes:99,chunks:2}))).status,409);
+  assert.equal((await call(path+'/complete','POST',JSON.stringify({bytes:6,chunks:2}))).status,200);
   assert.equal(await (await call(path+'/media')).text(),'abcdef');
   assert.deepEqual(await (await call('/api/recordings','GET',undefined,'b')).json(),[]);
   assert.equal((await call(path+'/media','GET',undefined,'b')).status,404);

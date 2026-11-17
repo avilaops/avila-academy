@@ -2,3 +2,4 @@
 .course{margin:28px 0;padding:24px;background:white;border:1px solid #cdd3cd;border-radius:12px}.course article{margin-top:24px;padding:18px;border-top:1px solid #cdd3cd}.course button{margin:8px 8px 8px 0}.course label{display:block;margin:10px 0}textarea{display:block;width:100%;min-height:90px;padding:10px;font:inherit;border:1px solid #aeb9b4;border-radius:6px}#create-course{max-width:500px}#create-course button{margin-top:10px}
 .actions{flex-wrap:wrap}meter{display:block;width:100%;max-width:300px;height:20px;margin:8px 0}small{display:block;font-weight:400;color:#50645d}
 nav{display:flex;align-items:center;gap:16px}nav form{margin:0}#player video{max-height:65vh;background:#142a24;border-radius:12px}#student-courses button{display:block}
+input[type="checkbox"]{display:inline-block;width:auto;margin-right:8px}

@@ -22,7 +22,7 @@ Em um navegador desktop com os recursos de captura disponíveis, preencha os tr�
 
 ## Limites desta versão
 
-A captura usa áudio do microfone. A seleção de tela depende do navegador. O estúdio acumula os dados em memória durante a captura e grava o rascunho ao finalizar. Use aulas curtas no piloto e baixe uma cópia. Fechar a aba antes da finalização perde a captura em andamento. Limpar os dados do navegador remove os rascunhos. Esta versão se destina a desenvolvimento local.
+A captura usa áudio do microfone. A seleção de tela depende do navegador. O estúdio grava as partes em IndexedDB durante a captura e monta o arquivo para revisão ao finalizar. Use aulas curtas no piloto e baixe uma cópia. Fechar a aba perde o intervalo que ainda não foi entregue pelo gravador ou confirmado no armazenamento local. As partes já confirmadas podem ser recuperadas como trecho parcial. Limpar os dados do navegador remove os rascunhos. Esta versão se destina a desenvolvimento local.
 
 ## Estrutura e verificação
 
@@ -35,7 +35,7 @@ A captura usa áudio do microfone. A seleção de tela depende do navegador. O e
 
 ## Biblioteca persistente e login OIDC
 
-O estúdio agora permite enviar o rascunho ao servidor após a revisão. A transferência ocorre em partes de 4 MiB e pode ser retomada clicando novamente em salvar. O identificador remoto permanece no rascunho local. Partes repetidas são aceitas apenas se os bytes coincidirem. A biblioteca lista as aulas da academia por curso e módulo e permite abrir gravações concluídas.
+O estúdio agora permite enviar o rascunho ao servidor após a revisão. A transferência de arquivos importados e rascunhos antigos ocorre em partes de 4 MiB e pode ser retomada clicando novamente em salvar. O identificador remoto permanece no rascunho local. Partes repetidas são aceitas apenas se os bytes coincidirem. A biblioteca lista as aulas da academia por curso e módulo e permite abrir gravações concluídas.
 
 Nesta fase os metadados e as partes de vídeo usam SQLite nativo do Node, no diretório `data`. Trata-se de uma decisão para permitir execução e testes sem provisionar infraestrutura. PostgreSQL e armazenamento de objetos continuam previstos para operação comercial. Os dados não são versionados. Defina DATA_DIRECTORY para um volume persistente e faça backup consistente do SQLite, incluindo o WAL ou usando a API de backup.
 
@@ -52,7 +52,7 @@ A integração usa os endpoints publicados pelo discovery do Auth. O cliente rea
 
 ## Próximas entregas
 
-As próximas entregas incluem envio durante a captura, PostgreSQL e objetos, publicação da origem com login real, personalização de domínios, mentorias, vídeo ao vivo e pagamentos, conforme o roadmap.
+As próximas entregas incluem processamento assíncrono, PostgreSQL e objetos, publicação da origem com login real, personalização de domínios, mentorias, vídeo ao vivo e pagamentos, conforme o roadmap.
 
 ## Catálogo do produtor
 
@@ -95,3 +95,15 @@ Em 17/11/2026 foi cadastrada a aplicação planejada `academy`, com cliente conf
 O endpoint real de tokens reconheceu a credencial. Uma requisição de verificação com código deliberadamente inválido retornou `invalid_grant`, em vez de `invalid_client`. Essa verificação não é um login concluído.
 
 A configuração privada está no servidor applications em `/opt/avila-academy/config/oidc.env`, com permissão 600. Ela não está no GitHub. Não imprima nem copie seu conteúdo para logs. O script `scripts/register-auth.cjs` documenta o cadastro e confere o cliente existente sem rotacionar o segredo. Ele depende do Prisma e da configuração de banco do container do Auth e recebe como argumento o caminho do arquivo privado. Para conferir um cadastro existente, o arquivo correspondente precisa estar disponível nesse caminho. Após o cadastro, as cópias temporárias foram removidas do container do Auth.
+
+## Salvamento e envio durante a captura
+
+O gravador salva as partes em IndexedDB aproximadamente a cada segundo, conforme a entrega de dados pelo navegador. Use **Enviar ao servidor durante a gravação** para ativar a sincronização. É preciso estar autenticado como produtor. O gravador continua salvando localmente se o envio falhar.
+
+As capturas novas usam segmentos de rede de 256 KiB. Só segmentos completos são enviados enquanto a captura está aberta. Ao finalizar, o restante é enviado e o cliente confirma tamanho total e quantidade de segmentos. O servidor rejeita a finalização com contadores divergentes. A criação também usa um identificador estável, evitando duplicar uma gravação quando a resposta de criação se perde.
+
+Quando a conexão retorna, o gravador ativo tenta sincronizar novamente. Após encerrar a captura, **Salvar aula no servidor** permite retomar manualmente. O envio é serializado por rascunho, consulta as partes já confirmadas e preserva os limites de segmento durante toda a retomada.
+
+Uma captura interrompida aparece como trecho parcial. **Finalizar trecho recuperado** permite revisar, baixar e enviar as partes que chegaram a ser salvas. Um trecho interrompido pode precisar de processamento para reprodução completa em todos os navegadores. Se a quota local se esgotar, o gravador para e oferece download dos dados disponíveis na sessão. Mantenha uma cópia antes de fechar a página.
+
+O teste do Chrome fecha a página durante uma captura já parcialmente salva e verifica recuperação na mesma origem. Outro cenário usa transporte simulado para verificar envio antes do encerramento, perda de uma resposta, retomada e igualdade dos bytes enviados com o arquivo local. O backend real é testado separadamente para idempotência, ordem e finalização. A validação do envio com conta real continua pendente de implantação.

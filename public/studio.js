@@ -1,3 +1,4 @@
+import {syncDraft} from './upload.js';
 import { drafts } from './storage.js';
 
 import { pictureInPicture } from './composition.js';
@@ -10,10 +11,12 @@ let objectURL;
 let busy = false;
 let prepared;
 let preparing = false;
+let activeCapture;
 
 function lock(value) {
   busy = value;
   el('fields').disabled = value;
+  el('live-upload').disabled = value;
   el('record').hidden = value;
   for (const button of el('drafts').querySelectorAll('button')) button.disabled = value;
 }
@@ -40,8 +43,21 @@ async function refresh() {
   list.replaceChildren();
   for (const entry of entries.sort((a,b) => b.created - a.created)) {
     const item = document.createElement('li');
+    if(entry.captureComplete===false && entry.bytes>0){
+      const recover=document.createElement('button');
+      recover.textContent='Finalizar trecho recuperado: '+entry.title;
+      recover.disabled=busy;
+      recover.onclick=async()=>{
+        try{
+          await drafts('patch',{id:entry.id,changes:{captureComplete:true}});
+          review(await drafts('get',entry.id));await refresh();
+          message('Trecho recuperado. Confira a reprodução e baixe uma cópia.');
+        }catch{message('Não foi possível recuperar o trecho.');}
+      };
+      item.append(recover);
+    }
     const button = document.createElement('button');
-    button.textContent = [entry.course, entry.unit, entry.title].join(' / ');
+    button.textContent = [entry.course, entry.unit, entry.title].join(' / ')+(entry.captureComplete===false?' — trecho parcial':'');
     button.disabled = busy;
     button.onclick = async () => {
       try { const saved = await drafts('get', entry.id); if (!busy) { review(saved); message(entry.title); } }
@@ -114,6 +130,7 @@ async function prepareCapture() {
     el('placeholder').textContent = 'Teste o microfone pelo indicador de áudio';
     preview.play().catch(() => {});
     el('fields').disabled = false;
+    el('live-upload').disabled = false;
     el('mode').disabled = true;
     el('record').hidden = false;
     el('cancel-preview').hidden = false;
@@ -179,31 +196,61 @@ el('settings').onsubmit = async event => {
   try {
     const session = new MediaRecorder(capture);
     recorder = session;
-    const chunks = [];
-    let failed = false;
-    session.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-    session.onerror = () => { failed = true; };
-    session.onstop = async () => {
-      prepared = undefined;
+    const id=crypto.randomUUID();
+    const live=el('live-upload').checked;
+    const metadata={
+      id,created:Date.now(),title:el('title').value,course:el('course').value,unit:el('unit').value,
+      mime:session.mimeType,bytes:0,localChunks:0,partSize:256*1024,captureComplete:false
+    };
+    await drafts('save',metadata);
+    activeCapture=live?id:undefined;
+    const upload=()=>syncDraft(id).catch(error=>{
+      window.dispatchEvent(new CustomEvent('academy:sync-status',{detail:error.message}));
+    });
+    let writing=Promise.resolve();
+    let failed=false;
+    const unsaved=[];
+    session.ondataavailable=event=>{
+      if(!event.data.size)return;
+      writing=writing.then(async()=>{
+        if(failed){unsaved.push(event.data);return;}
+        try{
+          await drafts('append',{id,blob:event.data});
+          if(live)void upload();
+        }catch{
+          failed=true;unsaved.push(event.data);
+          if(session.state!=='inactive')session.stop();
+        }
+      });
+    };
+    session.onerror=()=>{failed=true;};
+    session.onstop=async()=>{
+      prepared=undefined;
       release();
-      el('mode').disabled = false;
-      el('prepare').hidden = false;
-      el('stop').hidden = true;
-      el('pause').hidden = true;
-      recorder = undefined;
-      try {
-        if (!chunks.length) { message('A gravação terminou sem dados. Grave novamente.'); return; }
-        const draft = {
-          id: crypto.randomUUID(), created: Date.now(), title: el('title').value,
-          course: el('course').value, unit: el('unit').value,
-          blob: new Blob(chunks, { type: session.mimeType || chunks[0].type })
-        };
+      el('mode').disabled=false;
+      el('prepare').hidden=false;
+      el('stop').hidden=true;
+      el('pause').hidden=true;
+      recorder=undefined;
+      message('Salvando o rascunho…');
+      try{
+        await writing;
+        let draft=await drafts('get',id);
+        if(unsaved.length){
+          draft={...draft,blob:new Blob([draft.blob,...unsaved],{type:session.mimeType})};
+          review(draft);
+          message('Armazenamento local cheio. Baixe a gravação antes de sair.');
+          return;
+        }
+        await drafts('patch',{id,changes:{captureComplete:true}});
+        draft={...draft,captureComplete:true};
+        if(!draft.blob.size){message('A gravação terminou sem dados. Grave novamente.');return;}
         review(draft);
-        await drafts('save', draft);
         await refresh();
-        message(failed ? 'Gravação interrompida. Revise o trecho recuperado.' : 'Rascunho salvo. Revise a aula ou baixe uma cópia.');
-      } catch { message('Falha ao salvar no navegador. Baixe a gravação antes de sair.'); }
-      finally { lock(false); }
+        message(failed?'Gravação interrompida. Revise o trecho recuperado.':'Rascunho salvo. Revise a aula ou baixe uma cópia.');
+        if(live)void upload();
+      }catch{message('Não foi possível finalizar. Reabra o trecho parcial nos rascunhos.');}
+      finally{activeCapture=undefined;lock(false);}
     };
     streams.flatMap(stream => stream.getTracks()).forEach(track => track.addEventListener('ended', () => {
       if (session.state !== 'inactive') session.stop();
@@ -244,6 +291,9 @@ el('pause').onclick = () => {
   }
 };
 el('stop').onclick = () => { if (recorder && recorder.state !== 'inactive') recorder.stop(); };
+window.addEventListener('online',()=>{
+  if(activeCapture)syncDraft(activeCapture).catch(()=>{});
+});
 window.addEventListener('beforeunload', event => { if (busy) { event.preventDefault(); event.returnValue = ''; } });
 
 const brand = await fetch('/api/academy').then(response => response.json());
