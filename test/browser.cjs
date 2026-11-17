@@ -29,8 +29,12 @@ await page.waitForTimeout(600);
 await page.click('#stop');
 await page.getByText('Rascunho salvo.',{exact:false}).waitFor();
 await page.reload();await page.locator('#drafts button').filter({hasText:'Aula '+mode}).click();
+await page.waitForFunction(()=>document.querySelector('#download').href.startsWith('blob:')&&!document.querySelector('#download').hidden);
 const bytes=await page.evaluate(async()=> (await (await fetch(document.querySelector('#download').href)).blob()).size);
-assert(bytes>1000);console.log(mode,bytes);
+assert(bytes>1000);
+const type=await page.evaluate(async()=> (await (await fetch(document.querySelector('#download').href)).blob()).type);
+assert.match(type,/^(video|audio)\//);
+console.log(mode,bytes,type);
 }
 const fixture=await page.evaluate(async()=>{
   const blob=await (await fetch(document.querySelector('#download').href)).blob();
@@ -43,6 +47,7 @@ await page.locator('#import-media').setInputFiles({name:'gravacao.webm',mimeType
 await page.getByText('Aula importada.',{exact:false}).waitFor();
 await page.reload();
 await page.locator('#drafts button').filter({hasText:'Aula importada'}).click();
+await page.waitForFunction(()=>document.querySelector('#download').href.startsWith('blob:')&&!document.querySelector('#download').hidden);
 assert.equal(await page.evaluate(async()=> (await (await fetch(document.querySelector('#download').href)).blob()).size),fixture.bytes.length);
 await page.locator('#import-media').setInputFiles({name:'invalido.txt',mimeType:'text/plain',buffer:Buffer.from('texto')});
 await page.getByText('Escolha um arquivo', {exact:false}).waitFor();
