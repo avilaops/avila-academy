@@ -36,6 +36,8 @@ const fixture=await page.evaluate(async()=>{
   const blob=await (await fetch(document.querySelector('#download').href)).blob();
   return {type:blob.type,bytes:Array.from(new Uint8Array(await blob.arrayBuffer()))};
 });
+await page.fill('#course','Curso piloto');
+await page.fill('#unit','Introdução');
 await page.fill('#title','Aula importada');
 await page.locator('#import-media').setInputFiles({name:'gravacao.webm',mimeType:fixture.type.split(';')[0],buffer:Buffer.from(fixture.bytes)});
 await page.getByText('Aula importada.',{exact:false}).waitFor();
