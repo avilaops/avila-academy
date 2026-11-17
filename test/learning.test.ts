@@ -1,0 +1,60 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createServer} from 'node:http';
+import {once} from 'node:events';
+import {catalog} from '../catalog.ts';
+
+test('matrícula controla publicação, progresso e mídia, com revogação imediata nas novas requisições',async t=>{
+  const directory=await mkdtemp(join(tmpdir(),'academy-student-'));
+  let store=catalog(directory);
+  // Fixture exercises the catalog authorization rules. Real HTTP sessions remain enforced in server.ts.
+  const server=createServer((req,res)=>store.handle(req,res,req.headers['x-tenant']??'a',req.headers['x-subject']??'student')).listen(0,'127.0.0.1');
+  await once(server,'listening');
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));store.close();await rm(directory,{recursive:true});});
+  const base='http://127.0.0.1:'+server.address().port;
+  const call=(path,method='GET',data,headers={})=>fetch(base+path,{method,body:data===undefined?undefined:JSON.stringify(data),headers});
+  const create=async(path,data)=>(await call(path,'POST',data)).json();
+  const course=await create('/api/courses',{title:'Curso'});
+  const module=await create('/api/courses/'+course.id+'/modules',{title:'Módulo'});
+  const recording=await create('/api/recordings',{title:'Vídeo',course:'Curso',unit:'Módulo',mime:'video/webm'});
+  for(const [number,body] of ['abc','def'].entries()) {
+    assert.equal((await fetch(base+'/api/recordings/'+recording.id+'/chunks?number='+number,{method:'PUT',body})).status,200);
+  }
+  await call('/api/recordings/'+recording.id+'/complete','POST');
+  const lesson=await create('/api/courses/'+module.id+'/lessons',{title:'Aula',recordingId:recording.id});
+  const media='/api/student/lessons/'+lesson.id+'/media';
+  const progress='/api/student/lessons/'+lesson.id+'/progress';
+  assert.equal((await call(media)).status,404);
+  await call('/api/enrollments','POST',{courseId:course.id,subject:'student'});
+  const unpublished=await (await call('/api/student/courses')).json();
+  assert.deepEqual(unpublished[0].modules[0].lessons,[]);
+  assert.equal((await call(media)).status,404);
+  await call('/api/courses/'+lesson.id,'PATCH',{published:true});
+  assert.equal(await (await call(media)).text(),'abcdef');
+  const range=await call(media,'GET',undefined,{Range:'bytes=2-4'});
+  assert.equal(range.status,206);assert.equal(range.headers.get('content-range'),'bytes 2-4/6');
+  assert.equal(await range.text(),'cde');
+  assert.equal(await (await call(media,'GET',undefined,{Range:'bytes=-2'})).text(),'ef');
+  assert.equal((await call(media,'GET',undefined,{Range:'bytes=8-9'})).status,416);
+  assert.equal((await call(media,'GET',undefined,{'x-subject':'stranger'})).status,404);
+  assert.equal((await call(media,'GET',undefined,{'x-tenant':'b'})).status,404);
+  assert.equal((await call(progress,'POST',{seconds:42,completed:true})).status,200);
+  assert.equal((await call(progress,'POST',{seconds:-1,completed:false})).status,400);
+  store.close();store=catalog(directory);
+  const outline=await (await call('/api/student/courses')).json();
+  assert.equal(outline[0].modules[0].lessons[0].seconds,42);
+  assert.equal(outline[0].modules[0].lessons[0].completed,1);
+  const [enrollment]=await (await call('/api/enrollments')).json();
+  assert.equal((await call('/api/enrollments/'+enrollment.id,'PATCH',{active:false},{'x-tenant':'b'})).status,404);
+  await call('/api/enrollments/'+enrollment.id,'PATCH',{active:false});
+  assert.deepEqual(await (await call('/api/student/courses')).json(),[]);
+  assert.equal((await call(media)).status,404);
+  assert.equal((await call(progress,'POST',{seconds:43,completed:true})).status,404);
+  await call('/api/enrollments','POST',{courseId:course.id,subject:'student'});
+  assert.equal((await (await call('/api/enrollments')).json()).length,1);
+  await call('/api/courses/'+lesson.id,'PATCH',{published:false});
+  assert.equal((await call(media)).status,404);
+});

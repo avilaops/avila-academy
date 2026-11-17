@@ -8,7 +8,7 @@
 
 ## 2. Piloto com persistência e contas — em andamento
 
-- Implementado o cliente OIDC/PKCE e a autorização de produtores por subject. Pendente cadastrar credenciais e validar login real. Integrar o login da Ávila Ops via OIDC. Associar papéis de produtor, aluno e administrador a cada academia.
+- Implementado o cliente OIDC/PKCE e a autorização de produtores por subject. Pendente cadastrar credenciais e validar login real. Integrar o login da Ávila Ops via OIDC. Implementada separação de sessões de produtor/aluno, com testes de sessão assinada e autorização HTTP. Pendente papel administrativo e cadastro/validação real no Auth.
 - Modelar academias, domínios, membros, cursos, módulos, aulas e mídias no PostgreSQL e aplicar autorização no servidor.
 - Implementado catálogo de cursos, descrições, módulos ordenados e aulas vinculadas a gravações concluídas, com edição de nomes. Implementada importação de vídeos/áudios existentes como rascunhos, com revisão e envio pelo fluxo existente. Pendente anexos.
 - Implementado envio em partes com retomada após falha e persistência SQLite. Pendente envio durante a captura, processamento assíncrono e migração para PostgreSQL/objetos.
@@ -17,8 +17,8 @@
 
 ## 3. Publicação e área do aluno
 
-- Implementado estado publicado/rascunho das aulas no painel do produtor. Pendente matrícula manual, área do aluno e autorização de reprodução/anexos conforme matrícula.
-- Implementar vitrine, trilhas, progresso e continuidade da última aula.
+- Implementados estado publicado/rascunho, matrícula manual por subject OIDC, revogação/reativação e autorização de mídia por matrícula e academia. Pendente anexos e validação com contas reais.
+- Implementados área do aluno em /aluno, cursos com módulos/aulas publicadas, progresso persistente por aula e retomada da posição. Pendente refino visual da vitrine e trilhas entre cursos.
 - Ativar domínio verificado com HTTPS, logotipo, cores e e-mails por cliente.
 - Aceite: um aluno convidado acessa seu curso no domínio do produtor, retoma a aula e perde o acesso quando a matrícula é revogada.
 

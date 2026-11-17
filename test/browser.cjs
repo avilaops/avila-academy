@@ -53,5 +53,29 @@ await page.locator('#import-media').setInputFiles({name:'invalido.txt',mimeType:
 await page.getByText('Escolha um arquivo', {exact:false}).waitFor();
 assert.deepEqual(errors,[]);
 await page.goto('http://demo.localhost:3071');await page.getByText('Nenhuma aula gravada.').waitFor();
+// Component fixture only: real session/enrollment authorization is verified in auth.test.ts.
+let progress={seconds:0,completed:0};
+await page.route('**/api/student/courses',route=>route.fulfill({json:[{
+  title:'Curso do aluno',description:'Descrição',modules:[{title:'Introdução',lessons:[{
+    id:'fixture-lesson',title:'Aula publicada',description:'Material da aula',...progress
+  }]}]
+}]}));
+await page.route('**/api/student/lessons/fixture-lesson/media',route=>route.fulfill({
+  contentType:fixture.type,body:Buffer.from(fixture.bytes)
+}));
+await page.route('**/api/student/lessons/fixture-lesson/progress',async route=>{
+  progress=route.request().postDataJSON();
+  assert.equal(progress.completed,true);
+  assert(progress.seconds>=0);
+  await route.fulfill({json:{saved:true}});
+});
+await page.goto('http://abraao.localhost:3071/aluno');
+await page.getByRole('button',{name:'Continuar curso'}).click();
+await page.locator('#player video').waitFor();
+await page.getByRole('button',{name:'Marcar como concluída'}).click();
+await page.getByRole('button',{name:'Aula concluída',exact:true}).waitFor();
+await page.reload();
+await page.getByText('1 de 1 aulas concluídas').waitFor();
+assert.deepEqual(errors,[]);
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

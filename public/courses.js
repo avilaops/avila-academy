@@ -46,6 +46,9 @@ async function refresh() {
   const response=await fetch('/api/recordings');
   if(!response.ok) throw Error('Não foi possível carregar as gravações.');
   const recordings=(await response.json()).filter(record=>record.state==='ready');
+  const enrollmentResponse=await fetch('/api/enrollments');
+  if(!enrollmentResponse.ok)throw Error('Não foi possível carregar as matrículas.');
+  const enrollments=await enrollmentResponse.json();
   root.replaceChildren();
   for(const course of courses) {
     const section=document.createElement('section');
@@ -89,6 +92,20 @@ async function refresh() {
       section.append(unit);
     });
     section.append(creation('Novo módulo',title=>api('/'+course.id+'/modules','POST',{title})));
+    section.append(heading('h4','Alunos'));
+    section.append(creation('Identificador do aluno no Ávila Ops',async subject=>{
+      const response=await fetch('/api/enrollments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({courseId:course.id,subject})});
+      if(!response.ok)throw Error('Não foi possível liberar o curso.');
+    }));
+    for(const enrollment of enrollments.filter(item=>item.course_id===course.id)){
+      const row=document.createElement('p');
+      row.textContent=enrollment.subject+(enrollment.active?' — acesso ativo':' — acesso revogado');
+      row.append(button(enrollment.active?'Revogar acesso':'Reativar acesso',async()=>{
+        const response=await fetch('/api/enrollments/'+enrollment.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!enrollment.active})});
+        if(!response.ok)throw Error('Não foi possível alterar o acesso.');
+      }));
+      section.append(row);
+    }
     root.append(section);
   }
   if(!courses.length)root.textContent='Nenhum curso cadastrado.';

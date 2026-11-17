@@ -53,14 +53,14 @@ export async function authenticate(req, res, tenant) {
       const key=jwks.keys.find(k=>k.kid===h.kid && k.kty==='RSA' && (!k.use || k.use==='sig'));
       const audiences=Array.isArray(claims.aud)?claims.aud:[claims.aud];
       if (h.alg!=='RS256' || !key || !verify('RSA-SHA256',Buffer.from(header+'.'+payload),createPublicKey({key,format:'jwk'}),Buffer.from(signature,'base64url'))) throw Error('signature');
-      if (claims.iss!==issuer || !audiences.includes(process.env.OIDC_CLIENT_ID) || (audiences.length>1 && claims.azp!==process.env.OIDC_CLIENT_ID) || !Number.isFinite(claims.exp) || claims.exp*1000<Date.now() || (claims.nbf && claims.nbf*1000>Date.now()) || claims.nonce!==flow.nonce || !claims.sub) throw Error('claims');
+      if (claims.iss!==issuer || !audiences.includes(process.env.OIDC_CLIENT_ID) || (audiences.length>1 && claims.azp!==process.env.OIDC_CLIENT_ID) || !Number.isFinite(claims.exp) || claims.exp*1000<Date.now() || (claims.nbf && claims.nbf*1000>Date.now()) || claims.nonce!==flow.nonce || typeof claims.sub!=='string' || !claims.sub || claims.sub.length>255) throw Error('claims');
       const allowed=JSON.parse(process.env.ACADEMY_PRODUCERS??'{}');
-      if (!allowed[tenant]?.includes(claims.sub)) { res.writeHead(403).end('Usuário sem acesso de produtor a esta academia.'); return true; }
+      const role=allowed[tenant]?.includes(claims.sub)?'producer':'student';
       for (const [key,value] of sessions) if (value.expires<Date.now()) sessions.delete(key);
       const token=secret();
-      sessions.set(token,{tenant,sub:claims.sub,expires:Date.now()+28800000});
+      sessions.set(token,{tenant,sub:claims.sub,role,expires:Date.now()+28800000});
       res.setHeader('Set-Cookie','academy_session='+token+'; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+secure);
-      redirect('/'); return true;
+      redirect(role==='producer'?'/':'/aluno'); return true;
     } catch { res.writeHead(401).end('Não foi possível validar o login. Inicie novamente.'); return true; }
   }
   if (url.pathname === '/auth/logout' && req.method==='POST') {
@@ -69,5 +69,6 @@ export async function authenticate(req, res, tenant) {
     res.setHeader('Set-Cookie','academy_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'+secure);
     redirect('/'); return true;
   }
-  return !!(session && session.tenant===tenant && session.expires>Date.now());
+  if(url.pathname.startsWith('/auth/')) {res.writeHead(404).end();return true;}
+  return session && session.tenant===tenant && session.expires>Date.now() ? session : null;
 }

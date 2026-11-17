@@ -69,3 +69,15 @@ Use **Testar câmera e microfone** para abrir a prévia antes de gravar. O indic
 Também é possível selecionar uma aula já gravada em **Importar aula gravada**. São aceitos arquivos com MIME MP4, WebM ou Ogg, de áudio ou vídeo, não vazios e de até 1 GiB. Curso e módulo são obrigatórios. Se o título estiver vazio, ele é sugerido pelo nome do arquivo. O arquivo passa a ser um rascunho local revisável, com o mesmo envio retomável ao servidor. Compatibilidade de reprodução depende dos codecs suportados pelo navegador. O limite de armazenamento local também depende do espaço e da quota do navegador.
 
 Os testes do Chrome verificam liberação dos dispositivos ao encerrar a prévia, prévia sem início de gravação, gravação e pausa nos quatro modos, importação com persistência após recarregar e rejeição de formato incompatível. O cadastro OIDC e o envio com conta real continuam pendentes de configuração e validação.
+
+## Alunos, matrículas e progresso
+
+A rota `/aluno` apresenta os cursos liberados para a conta autenticada. O aluno pode selecionar uma aula, retomar o ponto salvo e marcar conclusão. O player salva a posição durante a reprodução, ao pausar e ao encerrar. A reprodução suporta HTTP Range, inclusive pedidos que cruzam as partes do upload. O progresso fica persistido por matrícula e aula.
+
+No catálogo do produtor, a seção Alunos libera cursos pelo identificador estável da conta no Auth (`sub` OIDC), revoga e reativa matrículas. A busca de alunos por nome/e-mail ainda depende da integração de diretório. Reativar a mesma matrícula preserva seu progresso.
+
+O login agora cria uma sessão de aluno para contas OIDC válidas que não constam na configuração de produtores. Essa sessão só acessa conteúdo com matrícula ativa. As APIs de catálogo, gravações e matrículas continuam exclusivas dos produtores. A área do aluno só recebe aulas publicadas com mídia concluída, dentro da própria academia. Cada nova requisição de vídeo e progresso verifica novamente a matrícula. Bytes já recebidos pelo navegador não podem ser revogados.
+
+Os testes de sessão usam tokens RS256 assinados por uma chave gerada no próprio teste e respostas locais para os endpoints do provedor. Eles verificam separação de papéis, CSRF e encerramento de sessão pelo servidor HTTP real. Isso não substitui a validação com o Auth em produção, ainda pendente de cadastro do cliente.
+
+Os testes de aprendizagem verificam matrícula, isolamento entre academias e alunos, publicação, ocultação de rascunhos, revogação, reativação, persistência do progresso após reinício e leitura de trechos do vídeo. A persistência desta etapa continua em SQLite.

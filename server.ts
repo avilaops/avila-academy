@@ -12,6 +12,8 @@ const brands = new Map([
   ['demo.localhost', { name: 'Academia de demonstração', color: '#524a92' }]
 ]);
 const assets = new Map([
+  ['/aluno', ['student.html', 'text/html']],
+  ['/student.js', ['student.js', 'text/javascript']],
   ['/', ['index.html', 'text/html']],
   ['/courses.js', ['courses.js', 'text/javascript']],
   ['/sync.js', ['sync.js', 'text/javascript']],
@@ -31,11 +33,12 @@ export function academyServer(options = {}) {
     if (!brand) { res.writeHead(421).end(); return; }
     const tenant = host === 'demo.localhost' ? 'demo' : 'abraao';
     if (req.url?.startsWith('/auth/')) { await authenticate(req,res,tenant); return; }
-    if ((req.url?.startsWith('/api/recordings') || req.url?.startsWith('/api/courses'))) {
+    if ((req.url?.startsWith('/api/recordings') || req.url?.startsWith('/api/courses') || req.url?.startsWith('/api/enrollments') || req.url?.startsWith('/api/student/'))) {
       const authorized = await authenticate(req,res,tenant);
       if (!authorized) { res.writeHead(401).end(); return; }
+      if(!req.url.startsWith('/api/student/') && authorized.role!=='producer') {res.writeHead(403).end();return;}
       if (req.method !== 'GET' && req.headers.origin !== 'http://'+req.headers.host && req.headers.origin !== 'https://'+req.headers.host) { res.writeHead(403).end(); return; }
-      await store.handle(req,res,tenant); return;
+      await store.handle(req,res,tenant,authorized.sub); return;
     }
     if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }).end(); return; }
     if (req.url === '/api/academy') {

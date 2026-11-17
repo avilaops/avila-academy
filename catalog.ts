@@ -2,6 +2,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { courseCatalog } from './courses.ts';
+import { learningCatalog } from './learning.ts';
+import { serveMedia } from './media.ts';
 import { randomUUID } from 'node:crypto';
 
 export function catalog(directory) {
@@ -18,6 +20,7 @@ export function catalog(directory) {
       PRIMARY KEY(recording,number)
     );`);
   const handleCourses = courseCatalog(db);
+  const handleLearning = learningCatalog(db,(req,res,item)=>serveMedia(db,req,res,item));
   function find(tenant,id) { return db.prepare('SELECT * FROM recordings WHERE tenant=? AND id=?').get(tenant,id); }
   async function body(req,limit) {
     const parts=[]; let length=0;
@@ -30,7 +33,8 @@ export function catalog(directory) {
   }
   return {
     close:()=>db.close(),
-    async handle(req,res,tenant) {
+    async handle(req,res,tenant,subject) {
+      if(req.url.startsWith('/api/student/') || req.url.startsWith('/api/enrollments')) {await handleLearning(req,res,tenant,subject);return;}
       if (req.url.startsWith('/api/courses')) { await handleCourses(req,res,tenant); return; }
       const url=new URL(req.url,'http://localhost');
       const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json'}).end(JSON.stringify(data));};
@@ -78,9 +82,7 @@ export function catalog(directory) {
           send(200,{ready:true});return;
         }
         if(action==='media' && req.method==='GET' && item.state==='ready') {
-          res.writeHead(200,{'Content-Type':item.mime,'Content-Length':item.bytes});
-          for (const chunk of db.prepare('SELECT data FROM chunks WHERE recording=? ORDER BY number').iterate(id)) res.write(chunk.data);
-          res.end();return;
+          await serveMedia(db,req,res,item);return;
         }
         send(405,{});
       } catch { if(!res.headersSent) send(400,{error:'Solicitação inválida ou arquivo acima do limite'});else res.end(); }
