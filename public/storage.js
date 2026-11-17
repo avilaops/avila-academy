@@ -16,7 +16,7 @@ export async function drafts(action,value) {
   try {
     return await new Promise((resolve,reject)=>{
       const write=['save','append','patch'].includes(action);
-      const tx=db.transaction(['drafts','labels','captureChunks'],write?'readwrite':'readonly');
+      const tx=db.transaction(['drafts','labels','captureChunks'],write?'readwrite':'readonly',{durability:write?'strict':'default'});
       const records=tx.objectStore('drafts');
       const labels=tx.objectStore('labels');
       const chunks=tx.objectStore('captureChunks');

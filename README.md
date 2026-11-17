@@ -98,7 +98,7 @@ A configuração privada está no servidor applications em `/opt/avila-academy/c
 
 ## Salvamento e envio durante a captura
 
-O gravador salva as partes em IndexedDB aproximadamente a cada segundo, conforme a entrega de dados pelo navegador. Use **Enviar ao servidor durante a gravação** para ativar a sincronização. É preciso estar autenticado como produtor. O gravador continua salvando localmente se o envio falhar.
+O gravador salva as partes em transações IndexedDB com durabilidade estrita aproximadamente a cada segundo, conforme a entrega de dados pelo navegador. Use **Enviar ao servidor durante a gravação** para ativar a sincronização. É preciso estar autenticado como produtor. O gravador continua salvando localmente se o envio falhar.
 
 As capturas novas usam segmentos de rede de 256 KiB. Só segmentos completos são enviados enquanto a captura está aberta. Ao finalizar, o restante é enviado e o cliente confirma tamanho total e quantidade de segmentos. O servidor rejeita a finalização com contadores divergentes. A criação também usa um identificador estável, evitando duplicar uma gravação quando a resposta de criação se perde.
 
