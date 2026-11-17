@@ -58,10 +58,16 @@ assert.deepEqual(errors,[]);
 await page.fill('#course','Curso piloto');await page.fill('#unit','Introdução');await page.fill('#title','Captura interrompida');
 await page.click('#record');
 await page.locator('#stop').waitFor();
-await page.waitForFunction(async()=>{
-  const {drafts}=await import('/storage.js');
-  return (await drafts('list')).some(draft=>draft.title==='Captura interrompida'&&draft.captureComplete===false&&draft.bytes>0);
-});
+let confirmed;
+for(let attempt=0;attempt<40;attempt++){
+  confirmed=await page.evaluate(async()=>{
+    const {drafts}=await import('/storage.js');
+    return (await drafts('list')).find(draft=>draft.title==='Captura interrompida');
+  });
+  if(confirmed?.captureComplete===false&&confirmed.bytes>0)break;
+  await page.waitForTimeout(250);
+}
+assert(confirmed?.bytes>0,'O teste deve confirmar uma parte persistida antes de provocar a interrupção');
 const cdp=await context.newCDPSession(page);
 await Promise.race([cdp.send('Page.crash').catch(()=>{}),page.waitForEvent('crash')]);
 await page.close();
