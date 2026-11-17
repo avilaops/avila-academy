@@ -209,16 +209,17 @@ el('settings').onsubmit = async event => {
     });
     let writing=Promise.resolve();
     let failed=false;
+    let storageFailed=false;
     const unsaved=[];
     session.ondataavailable=event=>{
       if(!event.data.size)return;
       writing=writing.then(async()=>{
-        if(failed){unsaved.push(event.data);return;}
+        if(storageFailed){unsaved.push(event.data);return;}
         try{
           await drafts('append',{id,blob:event.data});
           if(live)void upload();
         }catch{
-          failed=true;unsaved.push(event.data);
+          failed=true;storageFailed=true;unsaved.push(event.data);
           if(session.state!=='inactive')session.stop();
         }
       });

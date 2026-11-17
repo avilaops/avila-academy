@@ -53,7 +53,7 @@ assert.equal(await page.evaluate(async()=> (await (await fetch(document.querySel
 await page.locator('#import-media').setInputFiles({name:'invalido.txt',mimeType:'text/plain',buffer:Buffer.from('texto')});
 await page.getByText('Escolha um arquivo', {exact:false}).waitFor();
 assert.deepEqual(errors,[]);
-// Recovery after leaving an active capture uses committed IndexedDB chunks.
+// Recovery after an abrupt renderer failure during an active capture uses committed IndexedDB chunks.
 await page.fill('#course','Curso piloto');await page.fill('#unit','Introdução');await page.fill('#title','Captura interrompida');
 await page.click('#record');
 await page.locator('#stop').waitFor();
@@ -61,6 +61,8 @@ await page.waitForFunction(async()=>{
   const {drafts}=await import('/storage.js');
   return (await drafts('list')).some(draft=>draft.title==='Captura interrompida'&&draft.captureComplete===false&&draft.bytes>0);
 });
+const cdp=await context.newCDPSession(page);
+await Promise.race([cdp.send('Page.crash').catch(()=>{}),page.waitForEvent('crash')]);
 await page.close();
 page=await context.newPage();
 page.on('pageerror',error=>errors.push(error.message));
