@@ -10,7 +10,7 @@ A marca é selecionada pelo domínio. Os dois ambientes de desenvolvimento têm 
 
 ## Executar
 
-Requer Node.js 24. O aplicativo usa APIs nativas de Node e do navegador. A camada PostgreSQL utiliza o driver pg, com versões registradas no package-lock.json.
+Requer Node.js 24. O aplicativo usa APIs nativas de Node e do navegador. A camada PostgreSQL utiliza o driver pg e o acesso privado ao R2 utiliza o AWS SDK S3, com versões registradas no package-lock.json.
 
 ```sh
 npm ci
@@ -111,7 +111,7 @@ O teste do Chrome provoca uma falha abrupta do renderer durante uma captura já 
 
 ## PostgreSQL no applications
 
-O banco `academy_db` foi provisionado no PostgreSQL 18 do applications. O esquema `academy` contém academias, domínios, membros, cursos, módulos, aulas, matrículas e progresso. Mídias e anexos têm referências a chaves privadas de objetos e hashes. O armazenamento de objetos ainda precisa ser integrado.
+O banco `academy_db` foi provisionado no PostgreSQL 18 do applications. O esquema `academy` contém academias, domínios, membros, cursos, módulos, aulas, matrículas e progresso. Mídias e anexos têm referências a chaves privadas de objetos e hashes. O novo serviço de gravações integra objetos privados R2, com validação direta no banco real. Os anexos e o adapter HTTP ainda precisam dessa migração.
 
 A migração `migrations/postgres/001-academy.sql` é transacional e repetível. As tabelas usam Row Level Security com academia obrigatória, além de chaves estrangeiras compostas que impedem vínculos entre academias. O usuário `academy_app` não é proprietário do esquema e não tem privilégios de superusuário, criação de bancos/roles ou bypass de RLS.
 
@@ -150,3 +150,19 @@ O salvamento de progresso mantém locks compartilhados de matrícula, aula e mí
 Os testes rodaram no banco real com linhas temporárias de metadados. Verificaram isolamento entre academias e alunos, visibilidade de rascunhos, revogação, reativação, validação de progresso e ordem concorrente de aulas. Esses testes não representam upload ou reprodução de um objeto real.
 
 Os serviços continuam aguardando a integração completa do adapter HTTP. O servidor em execução local permanece no backend SQLite.
+
+## Objetos privados e upload PostgreSQL
+
+`persistence/recordings.ts` implementa criação idempotente, partes sequenciais, retomada, finalização com contadores obrigatórios e manifesto de reprodução. Cada gravação aceita até 1 GiB, em partes de até 8 MiB. Um lock na gravação serializa upload e finalização. Partes repetidas só são aceitas com mesmo tamanho e SHA-256. A RLS impede leitura e alteração de outra academia, inclusive reutilização de identificadores de upload.
+
+As partes são objetos independentes, identificados por academia, gravação, sequência e hash. Isso mantém os segmentos de 256 KiB usados durante a captura sem depender do tamanho mínimo das partes do multipart S3. O banco recebe apenas referências e contadores, após a confirmação do objeto. Uma perda de resposta pode deixar um objeto sem referência, que a retomada reutiliza sem sobrescrever. A coleta operacional de objetos órfãos ainda está pendente; o serviço não apaga objetos em rollback para evitar remover conteúdo já referenciado por outra tentativa.
+
+`persistence/objects.ts` oferece R2 privado e um adapter de arquivos privados para desenvolvimento/testes. O R2 usa PUT condicional e não sobrescreve objetos existentes. A leitura de mídia verifica tamanho e SHA-256 antes de entregar os bytes e busca apenas as partes que cruzam o intervalo solicitado. O adapter de arquivos usa criação atômica e arquivos com permissão 600. Seu diretório não deve ser servido estaticamente.
+
+Foi criado o bucket dedicado `avilaops-academy-media`, com r2.dev desativado e nenhum domínio público. A credencial tem permissão de objetos restrita a esse bucket. A configuração fica em `/opt/avila-academy/config/objects.env`, com permissão 600, usando R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID e R2_SECRET_ACCESS_KEY. Ela nunca deve ser enviada ao navegador, versionada ou impressa. A configuração e a derivação das credenciais seguem a [documentação oficial do R2](https://developers.cloudflare.com/r2/api/tokens/).
+
+Os testes de integração passaram no PostgreSQL do applications e no R2 real: falha antes da gravação, perda de resposta após persistir o objeto, retomada concorrente, conflito de bytes, ordem das partes, finalização divergente, isolamento, leitura parcial e verificação de integridade. Os objetos e registros temporários são removidos ao terminar. O conteúdo usado no teste comprova transporte de bytes; não substitui um teste de reprodução de vídeo no navegador ou processamento de codecs.
+
+O CI executa os mesmos cenários de repositório com PostgreSQL 18 e o adapter de arquivos, sem credenciais de produção. Para a verificação real autorizada no applications, execute `ACADEMY_TEST_R2=1 node --env-file=/opt/avila-academy/config/postgres.env --env-file=/opt/avila-academy/config/objects.env --test test/postgres/recordings.test.ts`. Esse comando cria e remove apenas seus próprios dados temporários.
+
+**As rotas HTTP continuam no SQLite.** Esta entrega conclui o serviço de gravações PostgreSQL/R2, mas não troca o backend do piloto. Ainda faltam anexos no novo armazenamento, adapter HTTP, migração dos dados e processamento assíncrono antes de validar captura e reprodução completas com usuários reais.
