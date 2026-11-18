@@ -107,3 +107,23 @@ Quando a conexão retorna, o gravador ativo tenta sincronizar novamente. Após e
 Uma captura interrompida aparece como trecho parcial. **Finalizar trecho recuperado** permite revisar, baixar e enviar as partes que chegaram a ser salvas. Um trecho interrompido pode precisar de processamento para reprodução completa em todos os navegadores. Se a quota local se esgotar, o gravador para e oferece download dos dados disponíveis na sessão. Mantenha uma cópia antes de fechar a página.
 
 O teste do Chrome provoca uma falha abrupta do renderer durante uma captura já parcialmente salva e verifica recuperação na mesma origem. Outro cenário usa transporte simulado para verificar envio antes do encerramento, perda de uma resposta, retomada e igualdade dos bytes enviados com o arquivo local. O backend real é testado separadamente para idempotência, ordem e finalização. A validação do envio com conta real continua pendente de implantação.
+
+## PostgreSQL no applications
+
+O banco `academy_db` foi provisionado no PostgreSQL 18 do applications. O esquema `academy` contém academias, domínios, membros, cursos, módulos, aulas, matrículas e progresso. Mídias e anexos têm referências a chaves privadas de objetos e hashes. O armazenamento de objetos ainda precisa ser integrado.
+
+A migração `migrations/postgres/001-academy.sql` é transacional e repetível. As tabelas usam Row Level Security com academia obrigatória, além de chaves estrangeiras compostas que impedem vínculos entre academias. O usuário `academy_app` não é proprietário do esquema e não tem privilégios de superusuário, criação de bancos/roles ou bypass de RLS.
+
+O futuro adapter deverá abrir uma transação por operação, definir a academia com `SELECT set_config('academy.tenant', $1, true)` e usar a mesma conexão até commit/rollback. O valor deve vir da resolução de domínio validada pelo servidor. Consultas sem esse contexto não veem dados. A RLS protege o limite da academia. Matrícula, publicação e permissões de cada pessoa continuam sendo verificadas pelo aplicativo.
+
+**O runtime ainda utiliza SQLite.** Este passo prepara e verifica o destino da migração. Ele não conecta automaticamente o servidor Node ao PostgreSQL nem copia as gravações existentes. O domínio planejado está cadastrado no banco com verificação pendente.
+
+A configuração privada está em `/opt/avila-academy/config/postgres.env`, com permissão 600 e sem cópia no GitHub. O script `scripts/provision-postgres.py` roda no applications com privilégios administrativos, recebe os caminhos da migração e de `test/postgres/isolation.sql`, reutiliza a credencial existente sem rotação e verifica a conexão do usuário da aplicação.
+
+Os testes SQL verificam leitura/alteração/exclusão/inserção entre academias, rejeição de módulo vinculado ao curso de outra academia, bloqueio de DDL e ausência de dados sem contexto. Eles rodam em transação com rollback e também foram executados no banco real. O GitHub Actions possui um job PostgreSQL 18 independente para reaplicar a migração e repetir essas verificações.
+
+## Cópia inicial e restauração do PostgreSQL
+
+O script `scripts/verify-postgres-backup.py` cria um dump privado em `/opt/avila-academy/backups`, restaura em um banco descartável, executa os testes de isolamento e remove esse banco ao terminar. A cópia inicial do banco real passou nessa verificação. Dumps ficam fora do repositório.
+
+Essa validação cobre o novo banco PostgreSQL. Ainda faltam a migração dos dados usados pelo runtime, backup dos objetos e da configuração, cópia externa e rotina de recuperação do serviço completo.

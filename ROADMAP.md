@@ -9,7 +9,7 @@
 ## 2. Piloto com persistência e contas — em andamento
 
 - Implementado o cliente OIDC/PKCE e a autorização de produtores por subject. Cliente academy-web cadastrado no Auth real e credencial reconhecida pelo endpoint de tokens. Pendente publicar a origem e validar login de conta real. Implementada separação de sessões de produtor/aluno, com testes de sessão assinada e autorização HTTP. Pendente papel administrativo e validação de login de conta real no Auth.
-- Modelar academias, domínios, membros, cursos, módulos, aulas e mídias no PostgreSQL e aplicar autorização no servidor.
+- Banco academy_db provisionado no PostgreSQL 18 do applications. Esquema de academias, domínios, membros, cursos, módulos, aulas, matrículas, progresso e referências de mídia aplicado, com RLS e chaves compostas por academia verificadas. Pendente conectar o runtime, migrar os dados SQLite e integrar armazenamento de objetos.
 - Implementado catálogo de cursos, descrições, módulos ordenados e aulas vinculadas a gravações concluídas, com edição de nomes. Implementada importação de vídeos/áudios existentes como rascunhos, com revisão e envio pelo fluxo existente. Implementados anexos por aula com upload, download, remoção e verificação de matrícula/publicação para alunos.
 - Implementados salvamento incremental em IndexedDB, recuperação de trechos parciais e envio opcional durante a captura com retomada, validação de finalização e criação idempotente. Persistência do piloto em SQLite. Pendente processamento assíncrono e migração para PostgreSQL/objetos.
 - Implementadas pausa, retomada, prévia antes da captura, encerramento da prévia com liberação de dispositivos e indicador do nível do microfone. A seleção de uma câmera ou microfone específico ainda utiliza o padrão do navegador.
@@ -32,5 +32,5 @@
 
 - Integrar Mercado Pago com eventos idempotentes de pagamento, reembolso e cancelamento.
 - Disponibilizar painel administrativo de academias, limites de armazenamento e medição de minutos de vídeo.
-- Validar backup e restauração, monitorar falhas e testar carga antes da abertura comercial.
+- Criada cópia inicial do PostgreSQL e validada restauração em banco descartável, incluindo testes de isolamento. Pendente backup de objetos/configuração, cópia externa, rotina operacional, monitoramento e carga antes da abertura comercial.
 - Aceite: ativar uma segunda marca e acompanhar matrículas, custos de mídia e disponibilidade por academia.

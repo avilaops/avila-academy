@@ -18,3 +18,31 @@ jobs:
           trap 'kill $!' EXIT
           for i in {1..30}; do curl -fsS http://localhost:3071/api/academy && break; sleep 1; done
           xvfb-run -a node test/browser.cjs
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: academy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: academy_test
+    steps:
+      - uses: actions/checkout@v4
+      - run: psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE academy_app NOLOGIN NOBYPASSRLS;"
+      - run: psql -X -v ON_ERROR_STOP=1 -f migrations/postgres/001-academy.sql
+      - run: psql -X -v ON_ERROR_STOP=1 -f migrations/postgres/001-academy.sql
+      - run: psql -X -v ON_ERROR_STOP=1 -f test/postgres/isolation.sql
