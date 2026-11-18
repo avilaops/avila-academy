@@ -9,6 +9,10 @@
   "scripts": {
     "dev": "node server.ts",
     "start": "node server.ts",
-    "test": "node --test test/*.test.ts"
+    "test": "node --test test/*.test.ts",
+    "test:postgres": "node --test test/postgres/*.test.ts"
+  },
+  "dependencies": {
+    "pg": "^8.0.0"
   }
 }

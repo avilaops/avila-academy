@@ -10,9 +10,10 @@ A marca é selecionada pelo domínio. Os dois ambientes de desenvolvimento têm 
 
 ## Executar
 
-Requer Node.js 24. O aplicativo usa APIs nativas de Node e do navegador e dispensa instalação de dependências em execução.
+Requer Node.js 24. O aplicativo usa APIs nativas de Node e do navegador. A camada PostgreSQL utiliza o driver pg, com versões registradas no package-lock.json.
 
 ```sh
+npm ci
 npm start
 ```
 
@@ -127,3 +128,15 @@ Os testes SQL verificam leitura/alteração/exclusão/inserção entre academias
 O script `scripts/verify-postgres-backup.py` cria um dump privado em `/opt/avila-academy/backups`, restaura em um banco descartável, executa os testes de isolamento e remove esse banco ao terminar. A cópia inicial do banco real passou nessa verificação. Dumps ficam fora do repositório.
 
 Essa validação cobre o novo banco PostgreSQL. Ainda faltam a migração dos dados usados pelo runtime, backup dos objetos e da configuração, cópia externa e rotina de recuperação do serviço completo.
+
+## Camada de acesso PostgreSQL
+
+`persistence/postgres.ts` implementa o pool e as transações com contexto de academia, parâmetros SQL e search_path fixo. O usuário da conexão é verificado para recusar superusuário, bypass de RLS ou proprietário do esquema. Contexto, limites de consulta e locks valem apenas durante a transação. O callback recebe uma conexão que deixa de aceitar consultas após o encerramento.
+
+Falhas provocam rollback antes de devolver a conexão ao pool. Uma operação que captura um erro SQL e tenta confirmar a transação abortada também é recusada. Não há repetição automática de callbacks, pois eles podem conter efeitos externos.
+
+`persistence/courses.ts` implementa criação e leitura de cursos, inclusão concorrente de módulos e reordenação atômica. As operações de ordenação bloqueiam o curso pai para evitar posições duplicadas. A leitura usa um snapshot repetível para manter os módulos e aulas consistentes.
+
+`npm run test:postgres` requer DATABASE_URL de um usuário restrito e esquema já migrado. O teste usa identificadores temporários, verifica concorrência, isolamento, rollback e conexão fora de escopo e remove seus próprios dados ao terminar. Ele passou no PostgreSQL real do applications com a credencial da Academy. O mesmo teste roda no PostgreSQL 18 do CI.
+
+**As rotas HTTP ainda usam o catálogo SQLite.** A camada PostgreSQL está funcional e testada diretamente. A troca das rotas depende de concluir os serviços de mídia, anexos, matrículas e progresso no novo armazenamento. Definir DATABASE_URL, por si só, ainda não altera a persistência do servidor.
