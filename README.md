@@ -140,3 +140,13 @@ Falhas provocam rollback antes de devolver a conexão ao pool. Uma operação qu
 `npm run test:postgres` requer DATABASE_URL de um usuário restrito e esquema já migrado. O teste usa identificadores temporários, verifica concorrência, isolamento, rollback e conexão fora de escopo e remove seus próprios dados ao terminar. Ele passou no PostgreSQL real do applications com a credencial da Academy. O mesmo teste roda no PostgreSQL 18 do CI.
 
 **As rotas HTTP ainda usam o catálogo SQLite.** A camada PostgreSQL está funcional e testada diretamente. A troca das rotas depende de concluir os serviços de mídia, anexos, matrículas e progresso no novo armazenamento. Definir DATABASE_URL, por si só, ainda não altera a persistência do servidor.
+
+## Aprendizagem no repositório PostgreSQL
+
+A camada PostgreSQL inclui criação concorrente de aulas, publicação/rascunho, matrícula idempotente, revogação/reativação e progresso por aluno. A criação de aula exige mídia com estado ready na mesma academia. As leituras do aluno filtram matrícula ativa, publicação e mídia concluída.
+
+O salvamento de progresso mantém locks compartilhados de matrícula, aula e mídia até confirmar a gravação. A revogação e a publicação usam os locks de atualização do PostgreSQL. Assim, uma revogação confirmada bloqueia novas operações, e a reativação mantém os dados anteriores. Uma conclusão já registrada não é apagada por um salvamento posterior de posição.
+
+Os testes rodaram no banco real com linhas temporárias de metadados. Verificaram isolamento entre academias e alunos, visibilidade de rascunhos, revogação, reativação, validação de progresso e ordem concorrente de aulas. Esses testes não representam upload ou reprodução de um objeto real.
+
+Os serviços continuam aguardando a integração completa do adapter HTTP. O servidor em execução local permanece no backend SQLite.

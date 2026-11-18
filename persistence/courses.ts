@@ -71,5 +71,26 @@ export class PostgresCourses {
       return true;
     });
   }
+  async addLesson(tenant,moduleId,recordingId,title,description='') {
+    if(typeof title!=='string'||!title.trim()||title.length>160||typeof description!=='string'||description.length>10000)
+      throw new Error('Dados da aula inválidos.');
+    return this.database.transaction(tenant,async connection=>{
+      const parent=await connection.query('SELECT id FROM modules WHERE id=$1 FOR UPDATE',[moduleId]);
+      if(!parent.rowCount)return null;
+      const media=await connection.query("SELECT id FROM recordings WHERE id=$1 AND state='ready' FOR SHARE",[recordingId]);
+      if(!media.rowCount)return null;
+      return (await connection.query(`INSERT INTO lessons(id,tenant,module_id,recording_id,title,description,position)
+        SELECT $1,$2,$3,$4,$5,$6,COALESCE(MAX(position),-1)+1 FROM lessons WHERE module_id=$3
+        RETURNING id,title,description,position,published`,
+        [randomUUID(),tenant,moduleId,recordingId,title.trim(),description])).rows[0];
+    });
+  }
+
+  async publishLesson(tenant,lessonId,published) {
+    if(typeof published!=='boolean')throw new Error('Situação da aula inválida.');
+    return this.database.transaction(tenant,async connection=>
+      (await connection.query('UPDATE lessons SET published=$1 WHERE id=$2 RETURNING id,published',[published,lessonId])).rows[0]??null);
+  }
+
 }
 
